@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:life_line_ngo/utils/styles.dart';
-import 'package:life_line_ngo/widgets/constants/constants.dart';
+import 'package:life_line_ngo/styles/styles.dart';
 
 class NgoDashboard extends StatefulWidget {
   const NgoDashboard({super.key});
@@ -135,7 +134,7 @@ class _NgoDashboardState extends State<NgoDashboard> {
       children: [
         Row(
           children: [
-            const Icon(Icons.folder, color: primaryMaroon, size: 32),
+            const Icon(Icons.folder, color: AppColors.primaryMaroon, size: 32),
             const SizedBox(width: AppSpacing.sm),
             Text('LifeLine', style: AppText.appHeader),
           ],
@@ -328,7 +327,7 @@ class _NgoDashboardState extends State<NgoDashboard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: primaryMaroon, size: 32),
+          Icon(icon, color: AppColors.primaryMaroon, size: 32),
           const SizedBox(height: AppSpacing.md),
           Text(title, style: AppText.fieldLabel),
           const SizedBox(height: AppSpacing.xs),
@@ -351,7 +350,9 @@ class _NgoDashboardState extends State<NgoDashboard> {
               ? const Padding(
                   padding: EdgeInsets.all(40),
                   child: Center(
-                    child: CircularProgressIndicator(color: primaryMaroon),
+                    child: CircularProgressIndicator(
+                      color: AppColors.primaryMaroon,
+                    ),
                   ),
                 )
               : victims.isEmpty
@@ -371,7 +372,7 @@ class _NgoDashboardState extends State<NgoDashboard> {
                     ),
                     child: DataTable(
                       headingRowColor: WidgetStateProperty.all(
-                        softBackground.withValues(alpha: 0.3),
+                        AppColors.softBackground.withValues(alpha: 0.3),
                       ),
                       columnSpacing: 40,
                       dataRowMinHeight: 60,
@@ -449,7 +450,7 @@ class _NgoDashboardState extends State<NgoDashboard> {
                                       child: Icon(
                                         Icons.location_on,
                                         size: 16,
-                                        color: accentRose,
+                                        color: AppColors.accentRose,
                                       ),
                                     ),
                                     const SizedBox(width: 4),
@@ -495,19 +496,19 @@ class _NgoDashboardState extends State<NgoDashboard> {
 
     switch (severity.toLowerCase()) {
       case 'critical':
-        statusColor = Colors.red;
+        statusColor = AppColors.error;
         break;
       case 'injured':
-        statusColor = Colors.orange;
+        statusColor = AppColors.warning;
         break;
       case 'safe':
-        statusColor = Colors.green;
+        statusColor = AppColors.success;
         break;
       case 'displaced':
-        statusColor = Colors.grey;
+        statusColor = AppColors.textSecondary;
         break;
       default:
-        statusColor = Colors.blue;
+        statusColor = AppColors.info;
     }
 
     return Container(

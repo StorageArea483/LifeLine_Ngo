@@ -4,8 +4,7 @@ import 'package:life_line_ngo/services/functions/transitions_in_pages.dart';
 import 'package:life_line_ngo/widgets/features/Login/ngo_authentication.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:life_line_ngo/model/store_info_db.dart';
-import 'package:life_line_ngo/utils/styles.dart';
-import 'package:life_line_ngo/widgets/constants/constants.dart';
+import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/widgets/features/SignUp/upload_ngo_file.dart';
 
 class NgoRegistration extends StatefulWidget {
@@ -79,9 +78,9 @@ class _NgoRegistrationState extends State<NgoRegistration> {
   Future<void> _submitForm() async {
     if (programSelection == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one checkbox.'),
-          backgroundColor: Colors.red,
+        SnackBar(
+          content: const Text('Please select at least one checkbox.'),
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -89,9 +88,9 @@ class _NgoRegistrationState extends State<NgoRegistration> {
 
     if (fileBytes == null || fileName == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please upload a document in order to continue'),
-          backgroundColor: Colors.red,
+        SnackBar(
+          content: const Text('Please upload a document in order to continue'),
+          backgroundColor: AppColors.error,
         ),
       );
       return;
@@ -105,12 +104,10 @@ class _NgoRegistrationState extends State<NgoRegistration> {
 
         // Upload file to Supabase if selected
         if (fileBytes != null && fileName != null) {
-          // Check if file is different from previously uploaded file
           final sanitizedName = fileName!
               .replaceAll(RegExp(r'[^a-zA-Z0-9._]'), '_')
               .toLowerCase();
 
-          // Create folder path using NGO name and branch name
           final ngoFolderName =
               widget.ngoName
                   ?.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
@@ -126,12 +123,10 @@ class _NgoRegistrationState extends State<NgoRegistration> {
           final uploadFileName =
               '$ngoFolderName/$branchFolderName/${timestamp}_$sanitizedName';
 
-          // Only upload if file is different
           if (_uploadedFilePath != uploadFileName) {
             try {
               final supabase = Supabase.instance.client;
 
-              // Delete old file if exists
               if (_uploadedFilePath != null) {
                 try {
                   await supabase.storage.from('ngo-documents').remove([
@@ -142,7 +137,6 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                 }
               }
 
-              // Upload new file
               await supabase.storage
                   .from('ngo-documents')
                   .uploadBinary(
@@ -165,14 +159,13 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('File upload failed: ${e.toString()}'),
-                    backgroundColor: Colors.red,
+                    backgroundColor: AppColors.error,
                   ),
                 );
               }
               return;
             }
           } else {
-            // Use existing file URL
             final supabase = Supabase.instance.client;
             documentUrl = supabase.storage
                 .from('ngo-documents')
@@ -180,7 +173,6 @@ class _NgoRegistrationState extends State<NgoRegistration> {
           }
         }
 
-        // Save to Firestore (update if docId exists, create if not)
         _docId = await addUserDetails(
           docId: _docId,
           ngoName: widget.ngoName,
@@ -214,7 +206,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error: ${e.toString()}'),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -242,10 +234,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
             padding: EdgeInsets.all(
               isMobileDialog ? AppSpacing.lg : AppSpacing.xxl,
             ),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.all(Radius.circular(12)),
-            ),
+            decoration: AppContainers.cardContainer,
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -253,7 +242,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                 children: [
                   Icon(
                     Icons.check_circle,
-                    color: Colors.green,
+                    color: AppColors.success,
                     size: isMobileDialog ? 60 : 80,
                   ),
                   const SizedBox(height: AppSpacing.lg),
@@ -287,15 +276,17 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 14,
                                 ),
-                                decoration: const BoxDecoration(
-                                  color: primaryMaroon,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryMaroon,
                                   borderRadius: BorderRadius.all(
-                                    Radius.circular(10),
+                                    Radius.circular(
+                                      AppDecorations.primaryButtonRadius,
+                                    ),
                                   ),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Edit Form',
-                                  style: TextStyle(color: Colors.white),
+                                  style: AppText.submitButton,
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -316,15 +307,17 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 14,
                                 ),
-                                decoration: const BoxDecoration(
-                                  color: primaryMaroon,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryMaroon,
                                   borderRadius: BorderRadius.all(
-                                    Radius.circular(10),
+                                    Radius.circular(
+                                      AppDecorations.primaryButtonRadius,
+                                    ),
                                   ),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Login Page',
-                                  style: TextStyle(color: Colors.white),
+                                  style: AppText.submitButton,
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -345,15 +338,17 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 16,
                                 ),
-                                decoration: const BoxDecoration(
-                                  color: primaryMaroon,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryMaroon,
                                   borderRadius: BorderRadius.all(
-                                    Radius.circular(10),
+                                    Radius.circular(
+                                      AppDecorations.primaryButtonRadius,
+                                    ),
                                   ),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Edit Form',
-                                  style: TextStyle(color: Colors.white),
+                                  style: AppText.submitButton,
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -373,15 +368,17 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 16,
                                 ),
-                                decoration: const BoxDecoration(
-                                  color: primaryMaroon,
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryMaroon,
                                   borderRadius: BorderRadius.all(
-                                    Radius.circular(10),
+                                    Radius.circular(
+                                      AppDecorations.primaryButtonRadius,
+                                    ),
                                   ),
                                 ),
-                                child: const Text(
+                                child: Text(
                                   'Login Page',
-                                  style: TextStyle(color: Colors.white),
+                                  style: AppText.submitButton,
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -435,7 +432,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                 children: [
                                   Icon(
                                     Icons.favorite,
-                                    color: primaryMaroon,
+                                    color: AppColors.primaryMaroon,
                                     size: isMobile
                                         ? 20
                                         : AppSizes.primaryIconSize,
@@ -470,7 +467,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                       ),
                                       borderRadius: BorderRadius.circular(8),
                                       border: Border.all(
-                                        color: accentRose.withValues(
+                                        color: AppColors.accentRose.withValues(
                                           alpha: 0.3,
                                         ),
                                         width: 1,
@@ -503,7 +500,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                       ),
                                       borderRadius: BorderRadius.circular(8),
                                       border: Border.all(
-                                        color: accentRose.withValues(
+                                        color: AppColors.accentRose.withValues(
                                           alpha: 0.3,
                                         ),
                                         width: 1,
@@ -862,12 +859,12 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                     title: Text(
                                       'Earthquake',
                                       style: AppText.small.copyWith(
-                                        color: darkCharcoal,
+                                        color: AppColors.textPrimary,
                                       ),
                                     ),
                                     controlAffinity:
                                         ListTileControlAffinity.leading,
-                                    activeColor: primaryMaroon,
+                                    activeColor: AppColors.primaryMaroon,
                                     contentPadding: EdgeInsets.zero,
                                   ),
                                   CheckboxListTile(
@@ -877,12 +874,12 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                     title: Text(
                                       'Floods',
                                       style: AppText.small.copyWith(
-                                        color: darkCharcoal,
+                                        color: AppColors.textPrimary,
                                       ),
                                     ),
                                     controlAffinity:
                                         ListTileControlAffinity.leading,
-                                    activeColor: primaryMaroon,
+                                    activeColor: AppColors.primaryMaroon,
                                     contentPadding: EdgeInsets.zero,
                                   ),
                                   CheckboxListTile(
@@ -892,12 +889,12 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                     title: Text(
                                       'Health',
                                       style: AppText.small.copyWith(
-                                        color: darkCharcoal,
+                                        color: AppColors.textPrimary,
                                       ),
                                     ),
                                     controlAffinity:
                                         ListTileControlAffinity.leading,
-                                    activeColor: primaryMaroon,
+                                    activeColor: AppColors.primaryMaroon,
                                     contentPadding: EdgeInsets.zero,
                                   ),
                                 ],
@@ -913,12 +910,12 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                       title: Text(
                                         'Earthquake',
                                         style: AppText.small.copyWith(
-                                          color: darkCharcoal,
+                                          color: AppColors.textPrimary,
                                         ),
                                       ),
                                       controlAffinity:
                                           ListTileControlAffinity.leading,
-                                      activeColor: primaryMaroon,
+                                      activeColor: AppColors.primaryMaroon,
                                       contentPadding: EdgeInsets.zero,
                                     ),
                                   ),
@@ -930,12 +927,12 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                       title: Text(
                                         'Floods',
                                         style: AppText.small.copyWith(
-                                          color: darkCharcoal,
+                                          color: AppColors.textPrimary,
                                         ),
                                       ),
                                       controlAffinity:
                                           ListTileControlAffinity.leading,
-                                      activeColor: primaryMaroon,
+                                      activeColor: AppColors.primaryMaroon,
                                       contentPadding: EdgeInsets.zero,
                                     ),
                                   ),
@@ -947,12 +944,12 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                       title: Text(
                                         'Health',
                                         style: AppText.small.copyWith(
-                                          color: darkCharcoal,
+                                          color: AppColors.textPrimary,
                                         ),
                                       ),
                                       controlAffinity:
                                           ListTileControlAffinity.leading,
-                                      activeColor: primaryMaroon,
+                                      activeColor: AppColors.primaryMaroon,
                                       contentPadding: EdgeInsets.zero,
                                     ),
                                   ),
@@ -1033,15 +1030,18 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                 onPressed: isLoading ? null : _submitForm,
                                 style: AppButtons.submit,
                                 child: isLoading
-                                    ? const SizedBox(
+                                    ? SizedBox(
                                         height: 24,
                                         width: 24,
                                         child: CircularProgressIndicator(
-                                          color: Colors.white,
+                                          color: AppColors.surfaceLight,
                                           strokeWidth: 2.5,
                                         ),
                                       )
-                                    : const Text('Submit for Authentication'),
+                                    : Text(
+                                        'Submit for Authentication',
+                                        style: AppText.submitButton,
+                                      ),
                               ),
                             ),
                           ],

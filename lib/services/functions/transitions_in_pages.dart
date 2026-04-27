@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 
-void pageTransition(BuildContext context, Widget targetScreenWidget) {
-  Navigator.of(context).pushReplacement(
+void pageTransition(BuildContext context, Widget page) {
+  Navigator.push(
+    context,
     PageRouteBuilder(
-      pageBuilder:
-          (context, animation, secondaryAnimation) => targetScreenWidget,
+      pageBuilder: (context, animation, secondaryAnimation) => page,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        Animation<Offset> nextPageAnimation = Tween<Offset>(
-          begin: Offset(1.0, 0.0),
-          end: Offset(0.0, 0.0),
-        ).animate(animation);
-        return SlideTransition(position: nextPageAnimation, child: child);
+        const begin = Offset(1.0, 0.0);
+        const end = Offset.zero;
+        const curve = Curves.ease;
+
+        var tween = Tween(
+          begin: begin,
+          end: end,
+        ).chain(CurveTween(curve: curve));
+
+        return SlideTransition(position: animation.drive(tween), child: child);
       },
-      transitionDuration: Duration(milliseconds: 300),
     ),
   );
 }

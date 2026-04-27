@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:life_line_ngo/utils/styles.dart';
-import 'package:life_line_ngo/widgets/constants/constants.dart';
+import 'package:life_line_ngo/styles/styles.dart';
 
 class RequestSubmit extends StatelessWidget {
   const RequestSubmit({super.key});
@@ -8,7 +7,7 @@ class RequestSubmit extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.surfaceLight,
       body: SafeArea(
         child: Column(
           children: [
@@ -18,9 +17,9 @@ class RequestSubmit extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.favorite,
-                    color: primaryMaroon,
+                    color: AppColors.primary,
                     size: AppSizes.primaryIconSize,
                   ),
                   const SizedBox(width: AppSpacing.sm),
@@ -42,13 +41,13 @@ class RequestSubmit extends StatelessWidget {
                       Container(
                         width: 80,
                         height: 80,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFE8F5E9),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.check_circle_outline,
-                          color: Color(0xFF4CAF50),
+                          color: AppColors.success,
                           size: 50,
                         ),
                       ),

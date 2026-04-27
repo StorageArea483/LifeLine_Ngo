@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:life_line_ngo/services/functions/transitions_in_pages.dart';
-import 'package:life_line_ngo/utils/styles.dart';
-import 'package:life_line_ngo/widgets/constants/constants.dart';
+import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/widgets/features/SignUp/ngo_registration.dart';
-import 'package:life_line_ngo/widgets/login_signup.dart';
+import 'package:life_line_ngo/pages/ngo_auth.dart';
 
 class RoleSelectScreen extends StatefulWidget {
   const RoleSelectScreen({super.key});
@@ -55,9 +54,9 @@ class _RoleSelectScreenState extends State<RoleSelectScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.favorite,
-                          color: primaryMaroon,
+                          color: AppColors.primary,
                           size: AppSizes.primaryIconSize,
                         ),
                         const SizedBox(width: AppSpacing.sm),
@@ -99,12 +98,14 @@ class _RoleSelectScreenState extends State<RoleSelectScreen> {
                         padding: const EdgeInsets.only(bottom: AppSpacing.lg),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
+                            color: AppColors.surfaceLight,
+                            borderRadius: BorderRadius.circular(
+                              AppDecorations.cardRadius,
+                            ),
                             border: Border.all(
                               color: isSelected
-                                  ? primaryMaroon
-                                  : const Color(0xFFE0E0E0),
+                                  ? AppColors.primary
+                                  : AppColors.borderColor,
                               width: isSelected ? 2 : 1,
                             ),
                           ),
@@ -115,7 +116,7 @@ class _RoleSelectScreenState extends State<RoleSelectScreen> {
                                 width: 48,
                                 height: 48,
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFF5F5F5),
+                                  color: AppColors.borderLight,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Image.asset(ngo['image']!),
@@ -143,7 +144,7 @@ class _RoleSelectScreenState extends State<RoleSelectScreen> {
                                     selectedIndex = value;
                                   });
                                 },
-                                activeColor: primaryMaroon,
+                                activeColor: AppColors.primary,
                               ),
                             ],
                           ),
@@ -162,9 +163,9 @@ class _RoleSelectScreenState extends State<RoleSelectScreen> {
                         // Logic will be implemented later
                         if (selectedIndex == null) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Please select your NGO.'),
-                              backgroundColor: Colors.red,
+                            SnackBar(
+                              content: const Text('Please select your NGO.'),
+                              backgroundColor: AppColors.error,
                             ),
                           );
                         } else {
@@ -178,7 +179,7 @@ class _RoleSelectScreenState extends State<RoleSelectScreen> {
                         }
                       },
                       style: AppButtons.submit,
-                      child: const Text('Continue'),
+                      child: Text('Continue', style: AppText.submitButton),
                     ),
                   ),
                 ],

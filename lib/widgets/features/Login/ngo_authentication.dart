@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:life_line_ngo/services/functions/transitions_in_pages.dart';
-import 'package:life_line_ngo/utils/styles.dart';
+import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/widgets/features/ngo_dasboard.dart';
-import 'package:life_line_ngo/widgets/login_signup.dart';
+import 'package:life_line_ngo/pages/ngo_auth.dart';
 
 class NgoAuthentication extends StatefulWidget {
   const NgoAuthentication({super.key});
@@ -67,9 +67,9 @@ class _NgoAuthenticationState extends State<NgoAuthentication> {
           if (context.mounted) {
             // ignore: use_build_context_synchronously
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Invalid email or password'),
-                backgroundColor: Colors.red,
+              SnackBar(
+                content: const Text('Invalid email or password'),
+                backgroundColor: AppColors.error,
               ),
             );
           }
@@ -77,23 +77,23 @@ class _NgoAuthenticationState extends State<NgoAuthentication> {
           if (context.mounted) {
             // ignore: use_build_context_synchronously
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Successfully logged in'),
-                backgroundColor: Colors.green,
+              SnackBar(
+                content: const Text('Successfully logged in'),
+                backgroundColor: AppColors.success,
               ),
             );
             // ignore: use_build_context_synchronously
-            pageTransition(context, NgoDashboard());
+            pageTransition(context, const NgoDashboard());
           }
         } else {
           if (context.mounted) {
             // ignore: use_build_context_synchronously
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
+              SnackBar(
+                content: const Text(
                   'Your request is being processed, please wait for a moment',
                 ),
-                backgroundColor: Colors.orange,
+                backgroundColor: AppColors.warning,
               ),
             );
           }
@@ -107,7 +107,7 @@ class _NgoAuthenticationState extends State<NgoAuthentication> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error: ${e.toString()}'),
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
             ),
           );
         }
@@ -146,7 +146,10 @@ class _NgoAuthenticationState extends State<NgoAuthentication> {
                                     context,
                                     const LoginSignup(),
                                   ),
-                                  child: const Icon(Icons.arrow_back),
+                                  child: Icon(
+                                    Icons.arrow_back,
+                                    color: AppColors.textSecondary,
+                                  ),
                                 ),
                               ),
                               SizedBox(height: AppSpacing.lg),
@@ -194,7 +197,7 @@ class _NgoAuthenticationState extends State<NgoAuthentication> {
                                           obscurePassword
                                               ? Icons.visibility_off
                                               : Icons.visibility,
-                                          color: Colors.grey,
+                                          color: AppColors.textSecondary,
                                         ),
                                         onPressed: () {
                                           setState(() {
@@ -220,15 +223,18 @@ class _NgoAuthenticationState extends State<NgoAuthentication> {
                                   onPressed: isLoading ? null : _submitLogin,
                                   style: AppButtons.submit,
                                   child: isLoading
-                                      ? const SizedBox(
+                                      ? SizedBox(
                                           height: 24,
                                           width: 24,
                                           child: CircularProgressIndicator(
-                                            color: Colors.white,
+                                            color: AppColors.surfaceLight,
                                             strokeWidth: 2.5,
                                           ),
                                         )
-                                      : const Text('Submit'),
+                                      : Text(
+                                          'Submit',
+                                          style: AppText.submitButton,
+                                        ),
                                 ),
                               ),
                             ],

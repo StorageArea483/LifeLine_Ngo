@@ -2,8 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_dropzone/flutter_dropzone.dart';
 import 'package:life_line_ngo/model/dropped_file.dart';
-import 'package:life_line_ngo/utils/styles.dart';
-import 'package:life_line_ngo/widgets/constants/constants.dart';
+import 'package:life_line_ngo/styles/styles.dart';
 
 class UploadNgoFile extends StatefulWidget {
   final Function(Uint8List? bytes, String? fileName, String? mimeType)?
@@ -35,9 +34,9 @@ class _UploadNgoFileState extends State<UploadNgoFile> {
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFF0F2).withValues(alpha: 0.7),
+              color: AppColors.surfaceLight.withValues(alpha: 0.9),
               borderRadius: AppDecorations.textFieldBorderRadius,
-              border: Border.all(color: primaryMaroon, width: 2),
+              border: Border.all(color: AppColors.primary, width: 2),
             ),
             child: Row(
               children: [
@@ -54,11 +53,11 @@ class _UploadNgoFileState extends State<UploadNgoFile> {
                       : Container(
                           width: 50,
                           height: 50,
-                          color: Colors.white.withValues(alpha: 0.5),
-                          child: const Icon(
+                          color: AppColors.surfaceLight.withValues(alpha: 0.5),
+                          child: Icon(
                             Icons.insert_drive_file,
                             size: 26,
-                            color: primaryMaroon,
+                            color: AppColors.primary,
                           ),
                         ),
                 ),
@@ -73,7 +72,7 @@ class _UploadNgoFileState extends State<UploadNgoFile> {
                         droppedFile!.name,
                         style: AppText.small.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: darkCharcoal,
+                          color: AppColors.textPrimary,
                         ),
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
@@ -81,7 +80,9 @@ class _UploadNgoFileState extends State<UploadNgoFile> {
                       const SizedBox(height: 4),
                       Text(
                         droppedFile!.size,
-                        style: AppText.small.copyWith(color: Colors.grey),
+                        style: AppText.small.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -89,7 +90,7 @@ class _UploadNgoFileState extends State<UploadNgoFile> {
                 // Remove button
                 IconButton(
                   onPressed: _removeFile,
-                  icon: const Icon(Icons.close, color: Color(0xFF757575)),
+                  icon: Icon(Icons.close, color: AppColors.textSecondary),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
@@ -102,9 +103,9 @@ class _UploadNgoFileState extends State<UploadNgoFile> {
         Container(
           height: 140,
           decoration: BoxDecoration(
-            color: const Color(0xFFF5F7FA),
+            color: AppColors.borderLight,
             borderRadius: AppDecorations.textFieldBorderRadius,
-            border: Border.all(color: const Color(0xFFE0E0E0), width: 2),
+            border: Border.all(color: AppColors.borderColor, width: 2),
           ),
           child: Stack(
             children: [
@@ -121,10 +122,10 @@ class _UploadNgoFileState extends State<UploadNgoFile> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.cloud_upload,
                         size: 36,
-                        color: Color(0xFFBDBDBD),
+                        color: AppColors.textMuted,
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       MouseRegion(
@@ -134,7 +135,7 @@ class _UploadNgoFileState extends State<UploadNgoFile> {
                           child: Text(
                             'Upload a file or drag and drop',
                             style: AppText.small.copyWith(
-                              color: primaryMaroon,
+                              color: AppColors.primary,
                               fontWeight: FontWeight.w600,
                             ),
                             textAlign: TextAlign.center,
