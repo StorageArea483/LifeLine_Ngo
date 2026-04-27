@@ -12,8 +12,8 @@ class RequestSubmit extends StatelessWidget {
         child: Column(
           children: [
             // Header
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
+            const Padding(
+              padding: EdgeInsets.all(AppSpacing.lg),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -22,7 +22,7 @@ class RequestSubmit extends StatelessWidget {
                     color: AppColors.primary,
                     size: AppSizes.primaryIconSize,
                   ),
-                  const SizedBox(width: AppSpacing.sm),
+                  SizedBox(width: AppSpacing.sm),
                   Text('LifeLine', style: AppText.appHeader),
                 ],
               ),
@@ -45,7 +45,7 @@ class RequestSubmit extends StatelessWidget {
                           color: AppColors.success.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.check_circle_outline,
                           color: AppColors.success,
                           size: 50,
@@ -54,11 +54,11 @@ class RequestSubmit extends StatelessWidget {
                       const SizedBox(height: AppSpacing.xxl),
 
                       // Title
-                      Text('Request Submitted', style: AppText.formTitle),
+                      const Text('Request Submitted', style: AppText.formTitle),
                       const SizedBox(height: AppSpacing.lg),
 
                       // Description
-                      Text(
+                      const Text(
                         'Your request has been submitted, please wait while we\nreview your documents. We\'ll notify you once there is an\nupdate.',
                         style: AppText.formDescription,
                         textAlign: TextAlign.center,

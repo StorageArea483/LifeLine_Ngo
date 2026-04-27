@@ -54,7 +54,7 @@ class _UploadNgoFileState extends State<UploadNgoFile> {
                           width: 50,
                           height: 50,
                           color: AppColors.surfaceLight.withValues(alpha: 0.5),
-                          child: Icon(
+                          child: const Icon(
                             Icons.insert_drive_file,
                             size: 26,
                             color: AppColors.primary,
@@ -90,7 +90,7 @@ class _UploadNgoFileState extends State<UploadNgoFile> {
                 // Remove button
                 IconButton(
                   onPressed: _removeFile,
-                  icon: Icon(Icons.close, color: AppColors.textSecondary),
+                  icon: const Icon(Icons.close, color: AppColors.textSecondary),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
                 ),
@@ -122,7 +122,7 @@ class _UploadNgoFileState extends State<UploadNgoFile> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.cloud_upload,
                         size: 36,
                         color: AppColors.textMuted,

@@ -1,9 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:life_line_ngo/services/functions/transitions_in_pages.dart';
-import 'package:life_line_ngo/widgets/features/Login/ngo_authentication.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:life_line_ngo/model/store_info_db.dart';
+import 'package:life_line_ngo/pages/ngo_select_screen.dart';
 import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/widgets/features/SignUp/upload_ngo_file.dart';
 
@@ -78,8 +76,8 @@ class _NgoRegistrationState extends State<NgoRegistration> {
   Future<void> _submitForm() async {
     if (programSelection == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select at least one checkbox.'),
+        const SnackBar(
+          content: Text('Please select at least one checkbox.'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -88,8 +86,8 @@ class _NgoRegistrationState extends State<NgoRegistration> {
 
     if (fileBytes == null || fileName == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please upload a document in order to continue'),
+        const SnackBar(
+          content: Text('Please upload a document in order to continue'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -122,55 +120,6 @@ class _NgoRegistrationState extends State<NgoRegistration> {
           final timestamp = DateTime.now().millisecondsSinceEpoch;
           final uploadFileName =
               '$ngoFolderName/$branchFolderName/${timestamp}_$sanitizedName';
-
-          if (_uploadedFilePath != uploadFileName) {
-            try {
-              final supabase = Supabase.instance.client;
-
-              if (_uploadedFilePath != null) {
-                try {
-                  await supabase.storage.from('ngo-documents').remove([
-                    _uploadedFilePath!,
-                  ]);
-                } catch (e) {
-                  // Ignore delete errors
-                }
-              }
-
-              await supabase.storage
-                  .from('ngo-documents')
-                  .uploadBinary(
-                    uploadFileName,
-                    fileBytes!,
-                    fileOptions: FileOptions(contentType: fileMimeType),
-                  );
-
-              documentUrl = supabase.storage
-                  .from('ngo-documents')
-                  .getPublicUrl(uploadFileName);
-
-              _uploadedFilePath = uploadFileName;
-            } catch (e) {
-              if (mounted) {
-                setState(() => isLoading = false);
-              }
-              if (context.mounted) {
-                // ignore: use_build_context_synchronously
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('File upload failed: ${e.toString()}'),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
-              }
-              return;
-            }
-          } else {
-            final supabase = Supabase.instance.client;
-            documentUrl = supabase.storage
-                .from('ngo-documents')
-                .getPublicUrl(_uploadedFilePath!);
-          }
         }
 
         _docId = await addUserDetails(
@@ -276,7 +225,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 14,
                                 ),
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   color: AppColors.primaryMaroon,
                                   borderRadius: BorderRadius.all(
                                     Radius.circular(
@@ -284,7 +233,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                     ),
                                   ),
                                 ),
-                                child: Text(
+                                child: const Text(
                                   'Edit Form',
                                   style: AppText.submitButton,
                                   textAlign: TextAlign.center,
@@ -301,13 +250,18 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                             child: GestureDetector(
                               onTap: () {
                                 Navigator.of(dialogContext).pop();
-                                pageTransition(context, NgoAuthentication());
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const NgoSelectScreen(),
+                                  ),
+                                );
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 14,
                                 ),
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   color: AppColors.primaryMaroon,
                                   borderRadius: BorderRadius.all(
                                     Radius.circular(
@@ -315,7 +269,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                     ),
                                   ),
                                 ),
-                                child: Text(
+                                child: const Text(
                                   'Login Page',
                                   style: AppText.submitButton,
                                   textAlign: TextAlign.center,
@@ -338,7 +292,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 16,
                                 ),
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   color: AppColors.primaryMaroon,
                                   borderRadius: BorderRadius.all(
                                     Radius.circular(
@@ -346,7 +300,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                     ),
                                   ),
                                 ),
-                                child: Text(
+                                child: const Text(
                                   'Edit Form',
                                   style: AppText.submitButton,
                                   textAlign: TextAlign.center,
@@ -362,13 +316,18 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                             child: GestureDetector(
                               onTap: () {
                                 Navigator.of(dialogContext).pop();
-                                pageTransition(context, NgoAuthentication());
+                                Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const NgoSelectScreen(),
+                                  ),
+                                );
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 16,
                                 ),
-                                decoration: BoxDecoration(
+                                decoration: const BoxDecoration(
                                   color: AppColors.primaryMaroon,
                                   borderRadius: BorderRadius.all(
                                     Radius.circular(
@@ -376,7 +335,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                     ),
                                   ),
                                 ),
-                                child: Text(
+                                child: const Text(
                                   'Login Page',
                                   style: AppText.submitButton,
                                   textAlign: TextAlign.center,
@@ -541,7 +500,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                             ),
 
                             // Registration Number
-                            Text(
+                            const Text(
                               'Registration Number / Certificate',
                               style: AppText.fieldLabel,
                             ),
@@ -567,7 +526,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                             const SizedBox(height: AppSpacing.xl),
 
                             // Address
-                            Text(
+                            const Text(
                               'Head Office Address + Local Branch Address',
                               style: AppText.fieldLabel,
                             ),
@@ -594,7 +553,10 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                             const SizedBox(height: AppSpacing.xl),
 
                             // Branch Name
-                            Text('Branch Name', style: AppText.fieldLabel),
+                            const Text(
+                              'Branch Name',
+                              style: AppText.fieldLabel,
+                            ),
                             const SizedBox(height: AppSpacing.sm),
                             TextFormField(
                               controller: branchNameController,
@@ -615,7 +577,10 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                             const SizedBox(height: AppSpacing.xl),
 
                             // Contact Details
-                            Text('Contact Details', style: AppText.fieldLabel),
+                            const Text(
+                              'Contact Details',
+                              style: AppText.fieldLabel,
+                            ),
                             const SizedBox(height: AppSpacing.sm),
                             if (isMobile) ...[
                               TextFormField(
@@ -730,7 +695,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                             const SizedBox(height: AppSpacing.xl),
 
                             // Password
-                            Text('Password', style: AppText.fieldLabel),
+                            const Text('Password', style: AppText.fieldLabel),
                             const SizedBox(height: AppSpacing.sm),
                             TextFormField(
                               controller: passwordController,
@@ -751,7 +716,10 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                             const SizedBox(height: AppSpacing.xl),
 
                             // Key Personnel
-                            Text('Key Personnel', style: AppText.fieldLabel),
+                            const Text(
+                              'Key Personnel',
+                              style: AppText.fieldLabel,
+                            ),
                             const SizedBox(height: AppSpacing.sm),
                             if (isMobile) ...[
                               TextFormField(
@@ -844,7 +812,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                             const SizedBox(height: AppSpacing.xl),
 
                             // Programs
-                            Text(
+                            const Text(
                               'Programs / Services Offered',
                               style: AppText.fieldLabel,
                             ),
@@ -958,7 +926,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                             const SizedBox(height: AppSpacing.md),
 
                             // Geographical Coverage
-                            Text(
+                            const Text(
                               'Geographical Coverage',
                               style: AppText.fieldLabel,
                             ),
@@ -984,7 +952,10 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                             const SizedBox(height: AppSpacing.xl),
 
                             // Past Experience
-                            Text('Past Experience', style: AppText.fieldLabel),
+                            const Text(
+                              'Past Experience',
+                              style: AppText.fieldLabel,
+                            ),
                             const SizedBox(height: AppSpacing.sm),
                             TextFormField(
                               controller: pastExperienceController,
@@ -1008,7 +979,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                             const SizedBox(height: AppSpacing.xl),
 
                             // Upload
-                            Text(
+                            const Text(
                               'Proof / Documentation',
                               style: AppText.fieldLabel,
                             ),
@@ -1030,7 +1001,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                 onPressed: isLoading ? null : _submitForm,
                                 style: AppButtons.submit,
                                 child: isLoading
-                                    ? SizedBox(
+                                    ? const SizedBox(
                                         height: 24,
                                         width: 24,
                                         child: CircularProgressIndicator(
@@ -1038,7 +1009,7 @@ class _NgoRegistrationState extends State<NgoRegistration> {
                                           strokeWidth: 2.5,
                                         ),
                                       )
-                                    : Text(
+                                    : const Text(
                                         'Submit for Authentication',
                                         style: AppText.submitButton,
                                       ),

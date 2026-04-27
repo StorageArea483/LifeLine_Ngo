@@ -129,19 +129,19 @@ class _NgoDashboardState extends State<NgoDashboard> {
   }
 
   Widget _buildHeader() {
-    return Column(
+    return const Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Icon(Icons.folder, color: AppColors.primaryMaroon, size: 32),
-            const SizedBox(width: AppSpacing.sm),
+            Icon(Icons.folder, color: AppColors.primaryMaroon, size: 32),
+            SizedBox(width: AppSpacing.sm),
             Text('LifeLine', style: AppText.appHeader),
           ],
         ),
-        const SizedBox(height: AppSpacing.xxl),
+        SizedBox(height: AppSpacing.xxl),
         Text('NGO Command Center', style: AppText.welcomeTitle),
-        const SizedBox(height: AppSpacing.sm),
+        SizedBox(height: AppSpacing.sm),
         Text(
           'Welcome back. Here is the current status of relief operations.',
           style: AppText.formDescription,
@@ -253,7 +253,7 @@ class _NgoDashboardState extends State<NgoDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Quick Actions', style: AppText.formTitle),
+        const Text('Quick Actions', style: AppText.formTitle),
         const SizedBox(height: AppSpacing.lg),
         LayoutBuilder(
           builder: (context, constraints) {
@@ -341,7 +341,7 @@ class _NgoDashboardState extends State<NgoDashboard> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Registered Victims', style: AppText.formTitle),
+        const Text('Registered Victims', style: AppText.formTitle),
         const SizedBox(height: AppSpacing.lg),
         Container(
           width: double.infinity,
@@ -356,8 +356,8 @@ class _NgoDashboardState extends State<NgoDashboard> {
                   ),
                 )
               : victims.isEmpty
-              ? Padding(
-                  padding: const EdgeInsets.all(40),
+              ? const Padding(
+                  padding: EdgeInsets.all(40),
                   child: Center(
                     child: Text('No victims found', style: AppText.small),
                   ),
