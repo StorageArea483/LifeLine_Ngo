@@ -1,20 +1,25 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:life_line_ngo/model/ngo_reg_provider.dart';
 import 'package:life_line_ngo/model/store_info_db.dart';
 import 'package:life_line_ngo/pages/ngo_select_screen.dart';
 import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/widgets/features/SignUp/upload_ngo_file.dart';
 
-class NgoRegistration extends StatefulWidget {
-  final String? ngoName;
-  final String? ngoLogo;
-  const NgoRegistration({super.key, this.ngoName, this.ngoLogo});
+class NgoRegistration extends ConsumerStatefulWidget {
+  final String ngoName;
+  final String ngoLogo;
+  const NgoRegistration({
+    super.key,
+    required this.ngoName,
+    required this.ngoLogo,
+  });
 
   @override
-  State<NgoRegistration> createState() => _NgoRegistrationState();
+  ConsumerState<NgoRegistration> createState() => _NgoRegistrationState();
 }
 
-class _NgoRegistrationState extends State<NgoRegistration> {
+class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
   final _formKey = GlobalKey<FormState>();
 
   // Controllers
@@ -32,24 +37,8 @@ class _NgoRegistrationState extends State<NgoRegistration> {
       TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController branchNameController = TextEditingController();
-
-  // Selected program (only one can be selected)
-  String? selectedProgram;
-  bool? programSelection;
-
-  // Loading state
-  bool isLoading = false;
-
-  // File data for upload
-  Uint8List? fileBytes;
-  String? fileName;
-  String? fileMimeType;
-
   // Store document ID for updates
   String? _docId;
-
-  // Store uploaded file path for deletion
-  String? _uploadedFilePath;
 
   @override
   void dispose() {
@@ -67,14 +56,15 @@ class _NgoRegistrationState extends State<NgoRegistration> {
   }
 
   void _onProgramChanged(String program) {
-    setState(() {
-      selectedProgram = selectedProgram == program ? null : program;
-      programSelection = true;
-    });
+    if (mounted) {
+      ref.read(ngoRegProvider.notifier).setSelectedProgram(program);
+    }
   }
 
   Future<void> _submitForm() async {
-    if (programSelection == null) {
+    if (!mounted) return;
+    final selectedProgram = ref.read(ngoRegProvider).selectedProgram;
+    if (selectedProgram.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select at least one checkbox.'),
@@ -84,43 +74,15 @@ class _NgoRegistrationState extends State<NgoRegistration> {
       return;
     }
 
-    if (fileBytes == null || fileName == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please upload a document in order to continue'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
-    }
-
     if (_formKey.currentState!.validate()) {
-      setState(() => isLoading = true);
-
+      if (mounted) {
+        ref.read(ngoRegProvider.notifier).setLoading(true);
+      }
       try {
         String? documentUrl;
 
-        // Upload file to Supabase if selected
-        if (fileBytes != null && fileName != null) {
-          final sanitizedName = fileName!
-              .replaceAll(RegExp(r'[^a-zA-Z0-9._]'), '_')
-              .toLowerCase();
-
-          final ngoFolderName =
-              widget.ngoName
-                  ?.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
-                  .toLowerCase() ??
-              'unknown_ngo';
-
-          final branchFolderName = branchNameController.text
-              .trim()
-              .replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')
-              .toLowerCase();
-
-          final timestamp = DateTime.now().millisecondsSinceEpoch;
-          final uploadFileName =
-              '$ngoFolderName/$branchFolderName/${timestamp}_$sanitizedName';
-        }
+        if (!mounted) return;
+        final selectedProgram = ref.read(ngoRegProvider).selectedProgram;
 
         _docId = await addUserDetails(
           docId: _docId,
@@ -141,14 +103,14 @@ class _NgoRegistrationState extends State<NgoRegistration> {
         );
 
         if (mounted) {
-          setState(() => isLoading = false);
+          ref.read(ngoRegProvider.notifier).setLoading(false);
           if (context.mounted) {
             _showSuccessDialog();
           }
         }
       } catch (e) {
         if (mounted) {
-          setState(() => isLoading = false);
+          ref.read(ngoRegProvider.notifier).setLoading(false);
         }
         if (context.mounted) {
           // ignore: use_build_context_synchronously
@@ -358,673 +320,516 @@ class _NgoRegistrationState extends State<NgoRegistration> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: AppContainers.pageContainer,
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final isMobile = constraints.maxWidth < 600;
-              final isTablet =
-                  constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // Background Image
+            Positioned.fill(
+              child: Image.asset(
+                'assets/images/rescue_img3.webp',
+                fit: BoxFit.cover,
+              ),
+            ),
+            // Gradient Overlay
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withOpacity(0.6),
+                      Colors.black.withOpacity(0.4),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Content
+            SafeArea(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isMobile = constraints.maxWidth < 600;
 
-              return Center(
-                child: SingleChildScrollView(
-                  child: Padding(
-                    padding: EdgeInsets.all(
-                      isMobile ? AppSpacing.lg : AppSpacing.xxl,
-                    ),
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: isMobile
-                            ? double.infinity
-                            : (isTablet ? 700 : 600),
-                      ),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Logo Header
-                            Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.favorite,
-                                    color: AppColors.primaryMaroon,
-                                    size: isMobile
-                                        ? 20
-                                        : AppSizes.primaryIconSize,
-                                  ),
-                                  const SizedBox(width: AppSpacing.sm),
-                                  Text(
-                                    'LifeLine',
-                                    style: isMobile
-                                        ? AppText.appHeader.copyWith(
-                                            fontSize: 16,
-                                          )
-                                        : AppText.appHeader,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            SizedBox(
-                              height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
-                            ),
-
-                            // NGO Info Row
-                            if (isMobile)
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    width: 60,
-                                    height: 60,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: AppColors.accentRose.withValues(
-                                          alpha: 0.3,
-                                        ),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: widget.ngoLogo != null
-                                        ? Image.asset(widget.ngoLogo!)
-                                        : const SizedBox(),
-                                  ),
-                                  const SizedBox(height: AppSpacing.md),
-                                  Text(
-                                    widget.ngoName ?? '',
-                                    style: AppText.fieldLabel.copyWith(
-                                      fontWeight: FontWeight.w500,
-                                      fontSize: 14,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              )
-                            else
-                              Row(
-                                children: [
-                                  Container(
-                                    width: 48,
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: AppColors.accentRose.withValues(
-                                          alpha: 0.3,
-                                        ),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: widget.ngoLogo != null
-                                        ? Image.asset(widget.ngoLogo!)
-                                        : const SizedBox(),
-                                  ),
-                                  const SizedBox(width: AppSpacing.lg),
-                                  Expanded(
-                                    child: Text(
-                                      widget.ngoName ?? '',
-                                      style: AppText.fieldLabel.copyWith(
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            const SizedBox(height: AppSpacing.md),
-
-                            Text(
-                              'Please provide the following information for verification.',
-                              style: isMobile
-                                  ? AppText.formDescription.copyWith(
-                                      fontSize: 14,
-                                    )
-                                  : AppText.formDescription,
-                              textAlign: isMobile
-                                  ? TextAlign.center
-                                  : TextAlign.start,
-                            ),
-                            SizedBox(
-                              height: isMobile
-                                  ? AppSpacing.xl
-                                  : AppSpacing.xxxl,
-                            ),
-
-                            // Registration Number
-                            const Text(
-                              'Registration Number / Certificate',
-                              style: AppText.fieldLabel,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            TextFormField(
-                              controller: registrationNumberController,
-                              decoration: AppTextFields.textFieldDecoration(
-                                'e.g., RG123-ABC/45',
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Registration Number is required';
-                                }
-                                final allowedCharsRegex = RegExp(
-                                  r'^[A-Za-z0-9\-/\\]+$',
-                                );
-                                if (!allowedCharsRegex.hasMatch(value.trim())) {
-                                  return 'Only letters, numbers, hyphens and slashes are allowed';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: AppSpacing.xl),
-
-                            // Address
-                            const Text(
-                              'Head Office Address + Local Branch Address',
-                              style: AppText.fieldLabel,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            TextFormField(
-                              controller: addressController,
-                              maxLines: 4,
-                              decoration: AppTextFields.textFieldDecoration(
-                                'Please specify if it\'s the Abbottabad office or a regional office.',
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Address is required';
-                                }
-                                final regExp = RegExp(
-                                  r"^[a-zA-Z0-9\s,.\-#/():']{10,200}$",
-                                );
-                                if (!regExp.hasMatch(value.trim())) {
-                                  return 'Address format seems invalid';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: AppSpacing.xl),
-
-                            // Branch Name
-                            const Text(
-                              'Branch Name',
-                              style: AppText.fieldLabel,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            TextFormField(
-                              controller: branchNameController,
-                              decoration: AppTextFields.textFieldDecoration(
-                                'e.g., Abbottabad Branch',
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'This field cannot be left empty';
-                                }
-                                final regex = RegExp(r"^[A-Za-z0-9\s,'/]+$");
-                                if (!regex.hasMatch(value.trim())) {
-                                  return 'Only letters, numbers are allowed';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: AppSpacing.xl),
-
-                            // Contact Details
-                            const Text(
-                              'Contact Details',
-                              style: AppText.fieldLabel,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            if (isMobile) ...[
-                              TextFormField(
-                                controller: phoneController,
-                                keyboardType: TextInputType.phone,
-                                decoration: AppTextFields.textFieldDecoration(
-                                  'Phone',
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return 'Phone number is required';
-                                  }
-                                  final regExp = RegExp(
-                                    r'^(?:\+92\s?|0)?(?:3\d{2}-?\d{7}|(21|22|42|51|61|71|81|92)-?\d{7})$',
-                                  );
-                                  if (!regExp.hasMatch(value.trim())) {
-                                    return 'Enter a valid Pakistani phone number';
-                                  }
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: AppSpacing.md),
-                              TextFormField(
-                                controller: emailController,
-                                keyboardType: TextInputType.emailAddress,
-                                decoration: AppTextFields.textFieldDecoration(
-                                  'Email',
-                                ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return 'Email is required';
-                                  }
-                                  final regExp = RegExp(
-                                    r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,}$',
-                                  );
-                                  if (!regExp.hasMatch(value.trim())) {
-                                    return 'Enter a valid email address';
-                                  }
-                                  final allowedDomains = ['gmail.com'];
-                                  final domain = value
-                                      .trim()
-                                      .split('@')
-                                      .last
-                                      .toLowerCase();
-                                  if (!allowedDomains.contains(domain)) {
-                                    return 'Please check spelling';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ] else
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: phoneController,
-                                      keyboardType: TextInputType.phone,
-                                      decoration:
-                                          AppTextFields.textFieldDecoration(
-                                            'Phone',
+                  return Center(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: isMobile ? double.infinity : 700,
+                        ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          padding: EdgeInsets.all(
+                            isMobile ? AppSpacing.xl : AppSpacing.xxxxl,
+                          ),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Back Button & NGO Info
+                                MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      if (mounted) {
+                                        Navigator.of(context).pushReplacement(
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                const NgoSelectScreen(),
                                           ),
-                                      validator: (value) {
-                                        if (value == null ||
-                                            value.trim().isEmpty) {
-                                          return 'Phone number is required';
-                                        }
-                                        final regExp = RegExp(
-                                          r'^(?:\+92\s?|0)?(?:3\d{2}-?\d{7}|(21|22|42|51|61|71|81|92)-?\d{7})$',
                                         );
-                                        if (!regExp.hasMatch(value.trim())) {
-                                          return 'Enter a valid Pakistani phone number';
-                                        }
-                                        return null;
-                                      },
+                                      }
+                                    },
+                                    child: const Icon(
+                                      Icons.arrow_back,
+                                      color: AppColors.textSecondary,
                                     ),
                                   ),
-                                  const SizedBox(width: AppSpacing.md),
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: emailController,
-                                      keyboardType: TextInputType.emailAddress,
-                                      decoration:
-                                          AppTextFields.textFieldDecoration(
-                                            'Email',
-                                          ),
-                                      validator: (value) {
-                                        if (value == null ||
-                                            value.trim().isEmpty) {
-                                          return 'Email is required';
-                                        }
-                                        final regExp = RegExp(
-                                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,}$',
-                                        );
-                                        if (!regExp.hasMatch(value.trim())) {
-                                          return 'Enter a valid email address';
-                                        }
-                                        final allowedDomains = ['gmail.com'];
-                                        final domain = value
-                                            .trim()
-                                            .split('@')
-                                            .last
-                                            .toLowerCase();
-                                        if (!allowedDomains.contains(domain)) {
-                                          return 'Please check spelling';
-                                        }
-                                        return null;
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            const SizedBox(height: AppSpacing.xl),
-
-                            // Password
-                            const Text('Password', style: AppText.fieldLabel),
-                            const SizedBox(height: AppSpacing.sm),
-                            TextFormField(
-                              controller: passwordController,
-                              obscureText: true,
-                              decoration: AppTextFields.textFieldDecoration(
-                                'Enter your password',
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'This field cannot be left empty';
-                                }
-                                if (value.trim().length < 6) {
-                                  return 'Password must be at least 6 characters';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: AppSpacing.xl),
-
-                            // Key Personnel
-                            const Text(
-                              'Key Personnel',
-                              style: AppText.fieldLabel,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            if (isMobile) ...[
-                              TextFormField(
-                                controller: directorNameController,
-                                decoration: AppTextFields.textFieldDecoration(
-                                  'Name of Director / CEO',
                                 ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return 'Director / CEO name is required';
-                                  }
-                                  final regExp = RegExp(
-                                    r"^[A-Za-z]+(?:[ .-][A-Za-z]+)*$",
-                                  );
-                                  if (!regExp.hasMatch(value.trim())) {
-                                    return 'Enter a valid name (letters only, no numbers or symbols)';
-                                  }
-                                  return null;
-                                },
-                              ),
-                              const SizedBox(height: AppSpacing.md),
-                              TextFormField(
-                                controller: projectManagerController,
-                                decoration: AppTextFields.textFieldDecoration(
-                                  'Project Manager or HR',
+                                const SizedBox(height: AppSpacing.lg),
+                                Row(
+                                  children: [
+                                    Container(
+                                      width: isMobile ? 40 : 48,
+                                      height: isMobile ? 40 : 48,
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: AppColors.borderLight,
+                                        ),
+                                      ),
+                                      padding: const EdgeInsets.all(6),
+                                      child: Image.asset(
+                                        widget.ngoLogo,
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            widget.ngoName,
+                                            style: AppText.fieldLabel.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: isMobile ? 15 : 17,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Registration Form',
+                                            style: AppText.small.copyWith(
+                                              color: AppColors.textSecondary,
+                                              fontSize: isMobile ? 12 : 14,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return 'Project Manager name is required';
-                                  }
-                                  final regExp = RegExp(
-                                    r"^[A-Za-z]+(?:[ .-][A-Za-z]+)*$",
-                                  );
-                                  if (!regExp.hasMatch(value.trim())) {
-                                    return 'Enter a valid name (letters only, no numbers or symbols)';
-                                  }
-                                  return null;
-                                },
-                              ),
-                            ] else
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: directorNameController,
-                                      decoration:
-                                          AppTextFields.textFieldDecoration(
-                                            'Name of Director / CEO',
+                                const SizedBox(height: 16),
+
+                                Text(
+                                  'Please provide the following information for verification.',
+                                  style: AppText.formDescription.copyWith(
+                                    fontSize: isMobile ? 14 : 15,
+                                  ),
+                                ),
+                                SizedBox(height: isMobile ? 20 : 24),
+
+                                // Registration Number
+                                _buildFieldLabel(
+                                  'Registration Number / Certificate',
+                                ),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: registrationNumberController,
+                                  decoration: AppTextFields.textFieldDecoration(
+                                    'e.g., RG123-ABC/45',
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Registration Number is required';
+                                    }
+                                    final allowedCharsRegex = RegExp(
+                                      r'^[A-Za-z0-9\-/\\]+$',
+                                    );
+                                    if (!allowedCharsRegex.hasMatch(
+                                      value.trim(),
+                                    )) {
+                                      return 'Only letters, numbers, hyphens and slashes are allowed';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Address
+                                _buildFieldLabel(
+                                  'Head Office + Branch Address',
+                                ),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: addressController,
+                                  maxLines: 4,
+                                  decoration: AppTextFields.textFieldDecoration(
+                                    'Specify office location',
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Address is required';
+                                    }
+                                    final regExp = RegExp(
+                                      r"^[a-zA-Z0-9\s,.\-#/():']{10,200}$",
+                                    );
+                                    if (!regExp.hasMatch(value.trim())) {
+                                      return 'Address format seems invalid';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Branch Name
+                                _buildFieldLabel('Branch Name'),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: branchNameController,
+                                  decoration: AppTextFields.textFieldDecoration(
+                                    'e.g., Abbottabad Branch',
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'This field cannot be left empty';
+                                    }
+                                    final regex = RegExp(
+                                      r"^[A-Za-z0-9\s,'/]+$",
+                                    );
+                                    if (!regex.hasMatch(value.trim())) {
+                                      return 'Only letters, numbers are allowed';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Phone
+                                _buildFieldLabel('Phone Number'),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: phoneController,
+                                  keyboardType: TextInputType.phone,
+                                  decoration: AppTextFields.textFieldDecoration(
+                                    'Phone',
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Phone number is required';
+                                    }
+                                    final regExp = RegExp(
+                                      r'^(?:\+92\s?|0)?(?:3\d{2}-?\d{7}|(21|22|42|51|61|71|81|92)-?\d{7})$',
+                                    );
+                                    if (!regExp.hasMatch(value.trim())) {
+                                      return 'Enter a valid Pakistani phone number';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Email
+                                _buildFieldLabel('Email Address'),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: emailController,
+                                  keyboardType: TextInputType.emailAddress,
+                                  decoration: AppTextFields.textFieldDecoration(
+                                    'Email',
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Email is required';
+                                    }
+                                    final regExp = RegExp(
+                                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,}$',
+                                    );
+                                    if (!regExp.hasMatch(value.trim())) {
+                                      return 'Enter a valid email address';
+                                    }
+                                    final allowedDomains = ['gmail.com'];
+                                    final domain = value
+                                        .trim()
+                                        .split('@')
+                                        .last
+                                        .toLowerCase();
+                                    if (!allowedDomains.contains(domain)) {
+                                      return 'Please check spelling';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Password
+                                _buildFieldLabel('Password'),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: passwordController,
+                                  obscureText: true,
+                                  decoration: AppTextFields.textFieldDecoration(
+                                    'Enter your password',
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'This field cannot be left empty';
+                                    }
+                                    if (value.trim().length < 6) {
+                                      return 'Password must be at least 6 characters';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Director Name
+                                _buildFieldLabel('Name of Director / CEO'),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: directorNameController,
+                                  decoration: AppTextFields.textFieldDecoration(
+                                    'Name of Director / CEO',
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Director / CEO name is required';
+                                    }
+                                    final regExp = RegExp(
+                                      r"^[A-Za-z]+(?:[ .-][A-Za-z]+)*$",
+                                    );
+                                    if (!regExp.hasMatch(value.trim())) {
+                                      return 'Enter a valid name (letters only, no numbers or symbols)';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Project Manager
+                                _buildFieldLabel('Project Manager or HR'),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: projectManagerController,
+                                  decoration: AppTextFields.textFieldDecoration(
+                                    'Project Manager or HR',
+                                  ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'Project Manager name is required';
+                                    }
+                                    final regExp = RegExp(
+                                      r"^[A-Za-z]+(?:[ .-][A-Za-z]+)*$",
+                                    );
+                                    if (!regExp.hasMatch(value.trim())) {
+                                      return 'Enter a valid name (letters only, no numbers or symbols)';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Programs
+                                _buildFieldLabel('Programs / Services Offered'),
+                                const SizedBox(height: 8),
+                                Consumer(
+                                  builder: (context, ref, child) {
+                                    if (!mounted) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    final selectedProgram = ref.watch(
+                                      ngoRegProvider.select(
+                                        (v) => v.selectedProgram,
+                                      ),
+                                    );
+                                    return Column(
+                                      children: [
+                                        CheckboxListTile(
+                                          value:
+                                              selectedProgram == 'Earthquake',
+                                          onChanged: (_) =>
+                                              _onProgramChanged('Earthquake'),
+                                          title: Text(
+                                            'Earthquake',
+                                            style: AppText.small.copyWith(
+                                              color: AppColors.textPrimary,
+                                            ),
                                           ),
-                                      validator: (value) {
-                                        if (value == null ||
-                                            value.trim().isEmpty) {
-                                          return 'Director / CEO name is required';
-                                        }
-                                        final regExp = RegExp(
-                                          r"^[A-Za-z]+(?:[ .-][A-Za-z]+)*$",
-                                        );
-                                        if (!regExp.hasMatch(value.trim())) {
-                                          return 'Enter a valid name (letters only, no numbers or symbols)';
-                                        }
-                                        return null;
-                                      },
-                                    ),
-                                  ),
-                                  const SizedBox(width: AppSpacing.md),
-                                  Expanded(
-                                    child: TextFormField(
-                                      controller: projectManagerController,
-                                      decoration:
-                                          AppTextFields.textFieldDecoration(
-                                            'Project Manager or HR',
+                                          controlAffinity:
+                                              ListTileControlAffinity.leading,
+                                          activeColor: AppColors.primaryMaroon,
+                                          contentPadding: EdgeInsets.zero,
+                                        ),
+                                        CheckboxListTile(
+                                          value: selectedProgram == 'Floods',
+                                          onChanged: (_) =>
+                                              _onProgramChanged('Floods'),
+                                          title: Text(
+                                            'Floods',
+                                            style: AppText.small.copyWith(
+                                              color: AppColors.textPrimary,
+                                            ),
                                           ),
-                                      validator: (value) {
-                                        if (value == null ||
-                                            value.trim().isEmpty) {
-                                          return 'Project Manager name is required';
-                                        }
-                                        final regExp = RegExp(
-                                          r"^[A-Za-z]+(?:[ .-][A-Za-z]+)*$",
-                                        );
-                                        if (!regExp.hasMatch(value.trim())) {
-                                          return 'Enter a valid name (letters only, no numbers or symbols)';
-                                        }
-                                        return null;
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            const SizedBox(height: AppSpacing.xl),
-
-                            // Programs
-                            const Text(
-                              'Programs / Services Offered',
-                              style: AppText.fieldLabel,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            if (isMobile)
-                              Column(
-                                children: [
-                                  CheckboxListTile(
-                                    value: selectedProgram == 'Earthquake',
-                                    onChanged: (_) =>
-                                        _onProgramChanged('Earthquake'),
-                                    title: Text(
-                                      'Earthquake',
-                                      style: AppText.small.copyWith(
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                    controlAffinity:
-                                        ListTileControlAffinity.leading,
-                                    activeColor: AppColors.primaryMaroon,
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
-                                  CheckboxListTile(
-                                    value: selectedProgram == 'Floods',
-                                    onChanged: (_) =>
-                                        _onProgramChanged('Floods'),
-                                    title: Text(
-                                      'Floods',
-                                      style: AppText.small.copyWith(
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                    controlAffinity:
-                                        ListTileControlAffinity.leading,
-                                    activeColor: AppColors.primaryMaroon,
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
-                                  CheckboxListTile(
-                                    value: selectedProgram == 'Health',
-                                    onChanged: (_) =>
-                                        _onProgramChanged('Health'),
-                                    title: Text(
-                                      'Health',
-                                      style: AppText.small.copyWith(
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                    controlAffinity:
-                                        ListTileControlAffinity.leading,
-                                    activeColor: AppColors.primaryMaroon,
-                                    contentPadding: EdgeInsets.zero,
-                                  ),
-                                ],
-                              )
-                            else
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: CheckboxListTile(
-                                      value: selectedProgram == 'Earthquake',
-                                      onChanged: (_) =>
-                                          _onProgramChanged('Earthquake'),
-                                      title: Text(
-                                        'Earthquake',
-                                        style: AppText.small.copyWith(
-                                          color: AppColors.textPrimary,
+                                          controlAffinity:
+                                              ListTileControlAffinity.leading,
+                                          activeColor: AppColors.primaryMaroon,
+                                          contentPadding: EdgeInsets.zero,
                                         ),
-                                      ),
-                                      controlAffinity:
-                                          ListTileControlAffinity.leading,
-                                      activeColor: AppColors.primaryMaroon,
-                                      contentPadding: EdgeInsets.zero,
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: CheckboxListTile(
-                                      value: selectedProgram == 'Floods',
-                                      onChanged: (_) =>
-                                          _onProgramChanged('Floods'),
-                                      title: Text(
-                                        'Floods',
-                                        style: AppText.small.copyWith(
-                                          color: AppColors.textPrimary,
+                                        CheckboxListTile(
+                                          value: selectedProgram == 'Medical',
+                                          onChanged: (_) =>
+                                              _onProgramChanged('Medical'),
+                                          title: Text(
+                                            'Medical',
+                                            style: AppText.small.copyWith(
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                          controlAffinity:
+                                              ListTileControlAffinity.leading,
+                                          activeColor: AppColors.primaryMaroon,
+                                          contentPadding: EdgeInsets.zero,
                                         ),
-                                      ),
-                                      controlAffinity:
-                                          ListTileControlAffinity.leading,
-                                      activeColor: AppColors.primaryMaroon,
-                                      contentPadding: EdgeInsets.zero,
-                                    ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Geographical Coverage
+                                _buildFieldLabel('Geographical Coverage'),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: geographicalCoverageController,
+                                  decoration: AppTextFields.textFieldDecoration(
+                                    'e.g., Abbottabad, KPK',
                                   ),
-                                  Expanded(
-                                    child: CheckboxListTile(
-                                      value: selectedProgram == 'Health',
-                                      onChanged: (_) =>
-                                          _onProgramChanged('Health'),
-                                      title: Text(
-                                        'Health',
-                                        style: AppText.small.copyWith(
-                                          color: AppColors.textPrimary,
-                                        ),
-                                      ),
-                                      controlAffinity:
-                                          ListTileControlAffinity.leading,
-                                      activeColor: AppColors.primaryMaroon,
-                                      contentPadding: EdgeInsets.zero,
-                                    ),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'This field cannot be left empty';
+                                    }
+                                    final regex = RegExp(
+                                      r"^[A-Za-z0-9\s,.:\/\-']+$",
+                                    );
+                                    if (!regex.hasMatch(value)) {
+                                      return 'Enter a valid Geographical Coverage (e.g. Abbottabad, KPK)';
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 20),
+
+                                // Past Experience
+                                _buildFieldLabel('Past Experience'),
+                                const SizedBox(height: 8),
+                                TextFormField(
+                                  controller: pastExperienceController,
+                                  maxLines: 4,
+                                  decoration: AppTextFields.textFieldDecoration(
+                                    'Describe previous disaster-relief projects with years.',
                                   ),
-                                ],
-                              ),
-                            const SizedBox(height: AppSpacing.md),
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return 'This field cannot be left empty';
+                                    }
+                                    final regex = RegExp(
+                                      r"^[A-Za-z0-9.,():\/\-\s']+$",
+                                    );
+                                    if (!regex.hasMatch(value)) {
+                                      return "Only letters, numbers, spaces, and basic punctuation are allowed.";
+                                    }
+                                    return null;
+                                  },
+                                ),
+                                const SizedBox(height: 20),
 
-                            // Geographical Coverage
-                            const Text(
-                              'Geographical Coverage',
-                              style: AppText.fieldLabel,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            TextFormField(
-                              controller: geographicalCoverageController,
-                              decoration: AppTextFields.textFieldDecoration(
-                                'e.g., Abbottabad, KPK',
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'This field cannot be left empty';
-                                }
-                                final regex = RegExp(
-                                  r"^[A-Za-z0-9\s,.:\/\-']+$",
-                                );
-                                if (!regex.hasMatch(value)) {
-                                  return 'Enter a valid Geographical Coverage (e.g. Abbottabad, KPK)';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: AppSpacing.xl),
+                                // Upload
+                                _buildFieldLabel('Proof / Documentation'),
+                                const SizedBox(height: 8),
+                                UploadNgoFile(
+                                  onFileSelected: (bytes, name, mime) {},
+                                ),
+                                SizedBox(height: isMobile ? 32 : 40),
 
-                            // Past Experience
-                            const Text(
-                              'Past Experience',
-                              style: AppText.fieldLabel,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            TextFormField(
-                              controller: pastExperienceController,
-                              maxLines: 4,
-                              decoration: AppTextFields.textFieldDecoration(
-                                'Describe previous disaster-relief projects with years.',
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'This field cannot be left empty';
-                                }
-                                final regex = RegExp(
-                                  r"^[A-Za-z0-9.,():\/\-\s']+$",
-                                );
-                                if (!regex.hasMatch(value)) {
-                                  return "Only letters, numbers, spaces, and basic punctuation are allowed.";
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: AppSpacing.xl),
-
-                            // Upload
-                            const Text(
-                              'Proof / Documentation',
-                              style: AppText.fieldLabel,
-                            ),
-                            const SizedBox(height: AppSpacing.sm),
-                            UploadNgoFile(
-                              onFileSelected: (bytes, name, mime) {
-                                fileBytes = bytes;
-                                fileName = name;
-                                fileMimeType = mime;
-                              },
-                            ),
-                            const SizedBox(height: AppSpacing.xxxl),
-
-                            // Submit Button
-                            SizedBox(
-                              width: double.infinity,
-                              height: AppSizes.submitButtonHeight,
-                              child: ElevatedButton(
-                                onPressed: isLoading ? null : _submitForm,
-                                style: AppButtons.submit,
-                                child: isLoading
-                                    ? const SizedBox(
-                                        height: 24,
-                                        width: 24,
-                                        child: CircularProgressIndicator(
-                                          color: AppColors.surfaceLight,
-                                          strokeWidth: 2.5,
+                                // Submit Button
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: isMobile
+                                      ? 48
+                                      : AppSizes.submitButtonHeight,
+                                  child: Consumer(
+                                    builder: (context, ref, child) {
+                                      if (!mounted) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      final isLoading = ref.watch(
+                                        ngoRegProvider.select(
+                                          (v) => v.isLoading,
                                         ),
-                                      )
-                                    : const Text(
-                                        'Submit for Authentication',
-                                        style: AppText.submitButton,
-                                      ),
-                              ),
+                                      );
+                                      return ElevatedButton(
+                                        onPressed: isLoading
+                                            ? null
+                                            : _submitForm,
+                                        style: AppButtons.submit,
+                                        child: isLoading
+                                            ? const SizedBox(
+                                                height: 24,
+                                                width: 24,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      color: AppColors
+                                                          .surfaceLight,
+                                                      strokeWidth: 2.5,
+                                                    ),
+                                              )
+                                            : const Text(
+                                                'Submit for Authentication',
+                                                style: AppText.submitButton,
+                                              ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
-              );
-            },
-          ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFieldLabel(String text) {
+    return Text(
+      text,
+      style: AppText.fieldLabel.copyWith(
+        fontWeight: FontWeight.w600,
+        fontSize: 15,
       ),
     );
   }

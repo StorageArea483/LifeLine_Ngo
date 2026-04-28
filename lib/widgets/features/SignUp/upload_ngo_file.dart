@@ -124,10 +124,10 @@ class _UploadNgoFileState extends State<UploadNgoFile> {
                     children: [
                       const Icon(
                         Icons.cloud_upload,
-                        size: 36,
+                        size: 32,
                         color: AppColors.textMuted,
                       ),
-                      const SizedBox(height: AppSpacing.sm),
+                      const SizedBox(height: 6),
                       MouseRegion(
                         cursor: SystemMouseCursors.click,
                         child: GestureDetector(
@@ -137,15 +137,16 @@ class _UploadNgoFileState extends State<UploadNgoFile> {
                             style: AppText.small.copyWith(
                               color: AppColors.primary,
                               fontWeight: FontWeight.w600,
+                              fontSize: 13,
                             ),
                             textAlign: TextAlign.center,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         'Scanned certificates, project reports, financials etc.',
-                        style: AppText.small.copyWith(fontSize: 12),
+                        style: AppText.small.copyWith(fontSize: 11),
                         textAlign: TextAlign.center,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,

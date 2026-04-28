@@ -297,9 +297,11 @@ class _NgoSelectScreenState extends State<NgoSelectScreen> {
                                                 MaterialPageRoute(
                                                   builder: (context) => NgoRegistration(
                                                     ngoName:
-                                                        ngoList[selectedIndex]['name'],
+                                                        ngoList[selectedIndex]['name'] ??
+                                                        '',
                                                     ngoLogo:
-                                                        ngoList[selectedIndex]['image'],
+                                                        ngoList[selectedIndex]['image'] ??
+                                                        '',
                                                   ),
                                                 ),
                                               );
