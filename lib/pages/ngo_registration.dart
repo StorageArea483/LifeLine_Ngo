@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:life_line_ngo/model/ngo_reg_provider.dart';
 import 'package:life_line_ngo/pages/ngo_login.dart';
 import 'package:life_line_ngo/widgets/store_ngo_info.dart';
@@ -88,9 +89,72 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
         if (!mounted) return;
         final fileName = ref.read(ngoRegProvider).fileName;
 
-        // Upload document to Appwrite Storage if file is selected
+        // Only upload a new document if user selected a new file
         if (fileBytes != null && fileName != null) {
           final appwriteService = AppwriteService();
+
+          // Check if there's an existing document URL to delete
+          if (_docId != null) {
+            try {
+              final docSnapshot = await FirebaseFirestore.instance
+                  .collection('ngo-info-database')
+                  .doc(_docId)
+                  .get();
+
+              if (docSnapshot.exists) {
+                final existingUrl =
+                    docSnapshot.data()?['documentUrl'] as String?;
+
+                // If an existing URL exists, delete the old file from Appwrite
+                if (existingUrl != null && existingUrl.isNotEmpty) {
+                  try {
+                    final uri = Uri.parse(existingUrl);
+                    final fileId =
+                        uri.pathSegments[uri.pathSegments.indexOf('files') + 1];
+
+                    await appwriteService.deleteFile(
+                      bucketId: '69f180590004b2f6de27',
+                      fileId: fileId,
+                    );
+                  } catch (deleteError) {
+                    // Log error but continue with upload
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'An unexpected error occurred, please retry',
+                          ),
+                          backgroundColor: AppColors.error,
+                        ),
+                      );
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(
+                          builder: (context) => const NgoSelectScreen(),
+                        ),
+                      );
+                    }
+                  }
+                }
+              }
+            } catch (firestoreError) {
+              // Log error but continue with upload
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('An unexpected error occurred, please retry'),
+                    backgroundColor: AppColors.error,
+                  ),
+                );
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(
+                    builder: (context) => const NgoSelectScreen(),
+                  ),
+                );
+              }
+            }
+          }
+
+          // Upload the new document
           documentUrl = await appwriteService.uploadDocument(
             fileBytes: fileBytes,
             fileName: fileName,
@@ -133,8 +197,8 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
         if (context.mounted) {
           // ignore: use_build_context_synchronously
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: ${e.toString()}'),
+            const SnackBar(
+              content: Text('An unexpected error occurred, please try again'),
               backgroundColor: AppColors.error,
             ),
           );
@@ -201,6 +265,16 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                           child: GestureDetector(
                             onTap: () {
                               if (mounted) {
+                                // Clear file state to prevent duplicate uploads
+                                ref
+                                    .read(ngoRegProvider.notifier)
+                                    .setFileBytes(null);
+                                ref
+                                    .read(ngoRegProvider.notifier)
+                                    .setFileName(null);
+                                ref
+                                    .read(ngoRegProvider.notifier)
+                                    .setDroppedFile(null);
                                 Navigator.of(dialogContext).pop();
                               }
                             },
@@ -228,8 +302,8 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                         width: double.infinity,
                         child: MouseRegion(
                           cursor: SystemMouseCursors.click,
-                          child: OutlinedButton(
-                            onPressed: () {
+                          child: GestureDetector(
+                            onTap: () {
                               if (context.mounted) {
                                 Navigator.of(context).pushReplacement(
                                   MaterialPageRoute(
@@ -238,22 +312,26 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                                 );
                               }
                             },
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.primary,
-                              side: const BorderSide(
-                                color: AppColors.primary,
-                                width: 2,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(
-                                  AppDecorations.primaryButtonRadius,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              decoration: BoxDecoration(
+                                color: Colors.transparent,
+                                border: Border.all(
+                                  color: AppColors.primaryMaroon,
+                                  width: 2,
+                                ),
+                                borderRadius: const BorderRadius.all(
+                                  Radius.circular(
+                                    AppDecorations.primaryButtonRadius,
+                                  ),
                                 ),
                               ),
-                            ),
-                            child: Text(
-                              'Login',
-                              style: AppText.button.copyWith(
-                                color: AppColors.primary,
+                              child: Text(
+                                'Login',
+                                style: AppText.submitButton.copyWith(
+                                  color: AppColors.primaryMaroon,
+                                ),
+                                textAlign: TextAlign.center,
                               ),
                             ),
                           ),

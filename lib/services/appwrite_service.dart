@@ -20,21 +20,36 @@ class AppwriteService {
     required String ngoName,
     required String branchNumber,
   }) async {
-    final storageFileName = '${ngoName}_${branchNumber}_$fileName';
+    try {
+      final storageFileName = '${ngoName}_${branchNumber}_$fileName';
 
-    // Generate unique file ID
-    final fileId = ID.unique();
+      // Generate unique file ID
+      final fileId = ID.unique();
 
-    // Upload file to Appwrite Storage
-    await _storage.createFile(
-      bucketId: _bucketId,
-      fileId: fileId,
-      file: InputFile.fromBytes(bytes: fileBytes, filename: storageFileName),
-    );
+      // Upload file to Appwrite Storage
+      await _storage.createFile(
+        bucketId: _bucketId,
+        fileId: fileId,
+        file: InputFile.fromBytes(bytes: fileBytes, filename: storageFileName),
+      );
 
-    // Construct and return the public view URL
-    final downloadUrl =
-        '$_endpoint/storage/buckets/$_bucketId/files/$fileId/view?project=$_projectId';
-    return downloadUrl;
+      // Construct and return the public view URL
+      final downloadUrl =
+          '$_endpoint/storage/buckets/$_bucketId/files/$fileId/view?project=$_projectId';
+      return downloadUrl;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> deleteFile({
+    required String bucketId,
+    required String fileId,
+  }) async {
+    try {
+      await _storage.deleteFile(bucketId: bucketId, fileId: fileId);
+    } catch (e) {
+      rethrow;
+    }
   }
 }
