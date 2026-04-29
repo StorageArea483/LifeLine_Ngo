@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_ngo/model/ngo_login_provider.dart';
+import 'package:life_line_ngo/pages/ngo_dashboard.dart';
 import 'package:life_line_ngo/styles/styles.dart';
-import 'package:life_line_ngo/pages/ngo_dasboard.dart';
 import 'package:life_line_ngo/pages/ngo_auth.dart';
 
 class NgoLogin extends ConsumerStatefulWidget {

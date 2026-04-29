@@ -615,7 +615,6 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                                 const SizedBox(height: 8),
                                 TextFormField(
                                   controller: passwordController,
-                                  obscureText: true,
                                   decoration: AppTextFields.textFieldDecoration(
                                     'Enter your password',
                                   ),

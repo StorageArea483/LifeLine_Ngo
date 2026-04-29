@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:life_line_ngo/widgets/ngo_file_size.dart';
 
+const _undefined = Object();
+
 class NgoRegNotifier extends StateNotifier<NgoRegState> {
   NgoRegNotifier()
     : super(
@@ -56,14 +58,16 @@ class NgoRegState {
     Uint8List? fileBytes,
     String? fileName,
     bool? isLoading,
-    DroppedFile? droppedFile,
+    Object? droppedFile = _undefined,
   }) {
     return NgoRegState(
       selectedProgram: selectedProgram ?? this.selectedProgram,
       fileBytes: fileBytes ?? this.fileBytes,
       fileName: fileName ?? this.fileName,
       isLoading: isLoading ?? this.isLoading,
-      droppedFile: droppedFile ?? this.droppedFile,
+      droppedFile: droppedFile == _undefined
+          ? this.droppedFile
+          : droppedFile as DroppedFile?,
     );
   }
 }
