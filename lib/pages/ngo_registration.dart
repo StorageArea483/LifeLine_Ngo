@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_ngo/model/ngo_reg_provider.dart';
-import 'package:life_line_ngo/model/store_info_db.dart';
+import 'package:life_line_ngo/pages/ngo_login.dart';
+import 'package:life_line_ngo/widgets/store_ngo_info.dart';
 import 'package:life_line_ngo/pages/ngo_select_screen.dart';
+import 'package:life_line_ngo/services/appwrite_service.dart';
 import 'package:life_line_ngo/styles/styles.dart';
-import 'package:life_line_ngo/widgets/features/SignUp/upload_ngo_file.dart';
+import 'package:life_line_ngo/widgets/upload_ngo_info.dart';
 
 class NgoRegistration extends ConsumerStatefulWidget {
   final String ngoName;
@@ -37,6 +39,7 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
       TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController branchNameController = TextEditingController();
+
   // Store document ID for updates
   String? _docId;
 
@@ -64,7 +67,7 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
   Future<void> _submitForm() async {
     if (!mounted) return;
     final selectedProgram = ref.read(ngoRegProvider).selectedProgram;
-    if (selectedProgram.isEmpty) {
+    if (selectedProgram.isEmpty && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select at least one checkbox.'),
@@ -80,6 +83,21 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
       }
       try {
         String? documentUrl;
+        if (!mounted) return;
+        final fileBytes = ref.read(ngoRegProvider).fileBytes;
+        if (!mounted) return;
+        final fileName = ref.read(ngoRegProvider).fileName;
+
+        // Upload document to Appwrite Storage if file is selected
+        if (fileBytes != null && fileName != null) {
+          final appwriteService = AppwriteService();
+          documentUrl = await appwriteService.uploadDocument(
+            fileBytes: fileBytes,
+            fileName: fileName,
+            ngoName: widget.ngoName,
+            branchNumber: branchNameController.text.trim(),
+          );
+        }
 
         if (!mounted) return;
         final selectedProgram = ref.read(ngoRegProvider).selectedProgram;
@@ -140,7 +158,7 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
             vertical: 24,
           ),
           child: Container(
-            width: isMobileDialog ? double.infinity : 500,
+            width: isMobileDialog ? double.infinity : 350,
             constraints: const BoxConstraints(maxHeight: 600),
             padding: EdgeInsets.all(
               isMobileDialog ? AppSpacing.lg : AppSpacing.xxl,
@@ -174,140 +192,75 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: AppSpacing.xxl),
-                  if (isMobileDialog)
-                    Column(
-                      children: [
-                        SizedBox(
-                          width: double.infinity,
-                          child: MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: GestureDetector(
-                              onTap: () => Navigator.of(dialogContext).pop(),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primaryMaroon,
-                                  borderRadius: BorderRadius.all(
-                                    Radius.circular(
-                                      AppDecorations.primaryButtonRadius,
-                                    ),
+                  Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: GestureDetector(
+                            onTap: () {
+                              if (mounted) {
+                                Navigator.of(dialogContext).pop();
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              decoration: const BoxDecoration(
+                                color: AppColors.primaryMaroon,
+                                borderRadius: BorderRadius.all(
+                                  Radius.circular(
+                                    AppDecorations.primaryButtonRadius,
                                   ),
                                 ),
-                                child: const Text(
-                                  'Edit Form',
-                                  style: AppText.submitButton,
-                                  textAlign: TextAlign.center,
-                                ),
+                              ),
+                              child: const Text(
+                                'Edit Form',
+                                style: AppText.submitButton,
+                                textAlign: TextAlign.center,
                               ),
                             ),
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.md),
-                        SizedBox(
-                          width: double.infinity,
-                          child: MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.of(dialogContext).pop();
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      SizedBox(
+                        width: double.infinity,
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              if (context.mounted) {
                                 Navigator.of(context).pushReplacement(
                                   MaterialPageRoute(
-                                    builder: (context) =>
-                                        const NgoSelectScreen(),
+                                    builder: (context) => const NgoLogin(),
                                   ),
                                 );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
+                              }
+                            },
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: const BorderSide(
+                                color: AppColors.primary,
+                                width: 2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppDecorations.primaryButtonRadius,
                                 ),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primaryMaroon,
-                                  borderRadius: BorderRadius.all(
-                                    Radius.circular(
-                                      AppDecorations.primaryButtonRadius,
-                                    ),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Login Page',
-                                  style: AppText.submitButton,
-                                  textAlign: TextAlign.center,
-                                ),
+                              ),
+                            ),
+                            child: Text(
+                              'Login',
+                              style: AppText.button.copyWith(
+                                color: AppColors.primary,
                               ),
                             ),
                           ),
                         ),
-                      ],
-                    )
-                  else
-                    Row(
-                      children: [
-                        Expanded(
-                          child: MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: GestureDetector(
-                              onTap: () => Navigator.of(dialogContext).pop(),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primaryMaroon,
-                                  borderRadius: BorderRadius.all(
-                                    Radius.circular(
-                                      AppDecorations.primaryButtonRadius,
-                                    ),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Edit Form',
-                                  style: AppText.submitButton,
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.md),
-                        Expanded(
-                          child: MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: GestureDetector(
-                              onTap: () {
-                                Navigator.of(dialogContext).pop();
-                                Navigator.of(context).pushReplacement(
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const NgoSelectScreen(),
-                                  ),
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                decoration: const BoxDecoration(
-                                  color: AppColors.primaryMaroon,
-                                  borderRadius: BorderRadius.all(
-                                    Radius.circular(
-                                      AppDecorations.primaryButtonRadius,
-                                    ),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Login Page',
-                                  style: AppText.submitButton,
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -764,7 +717,16 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                                 _buildFieldLabel('Proof / Documentation'),
                                 const SizedBox(height: 8),
                                 UploadNgoFile(
-                                  onFileSelected: (bytes, name, mime) {},
+                                  onFileSelected: (bytes, name, mime) {
+                                    if (mounted) {
+                                      ref
+                                          .read(ngoRegProvider.notifier)
+                                          .setFileBytes(bytes);
+                                      ref
+                                          .read(ngoRegProvider.notifier)
+                                          .setFileName(name);
+                                    }
+                                  },
                                 ),
                                 SizedBox(height: isMobile ? 32 : 40),
 
@@ -779,11 +741,9 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                                       if (!mounted) {
                                         return const SizedBox.shrink();
                                       }
-                                      final isLoading = ref.watch(
-                                        ngoRegProvider.select(
-                                          (v) => v.isLoading,
-                                        ),
-                                      );
+                                      final isLoading = ref
+                                          .watch(ngoRegProvider)
+                                          .isLoading;
                                       return ElevatedButton(
                                         onPressed: isLoading
                                             ? null
