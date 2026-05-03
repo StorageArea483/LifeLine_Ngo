@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:life_line_ngo/model/ngo_reg_provider.dart';
+import 'package:life_line_ngo/providers/ngo_reg_provider.dart';
 import 'package:life_line_ngo/pages/ngo_login.dart';
 import 'package:life_line_ngo/widgets/store_ngo_info.dart';
 import 'package:life_line_ngo/pages/ngo_select_screen.dart';
@@ -119,6 +119,7 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                   } catch (deleteError) {
                     // Log error but continue with upload
                     if (mounted) {
+                      ref.read(ngoRegProvider.notifier).setLoading(false);
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
@@ -139,6 +140,7 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
             } catch (firestoreError) {
               // Log error but continue with upload
               if (mounted) {
+                ref.read(ngoRegProvider.notifier).setLoading(false);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('An unexpected error occurred, please retry'),

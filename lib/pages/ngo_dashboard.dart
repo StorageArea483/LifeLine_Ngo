@@ -1,14 +1,114 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:life_line_ngo/providers/ngo_dasboard_provider.dart';
+import 'package:life_line_ngo/pages/ngo_auth.dart';
 import 'package:life_line_ngo/pages/show_victim_info.dart';
 import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/widgets/nav_bar.dart';
 
-class NgoDashboard extends ConsumerWidget {
+class NgoDashboard extends ConsumerStatefulWidget {
   const NgoDashboard({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NgoDashboard> createState() => _NgoDashboardState();
+}
+
+class _NgoDashboardState extends ConsumerState<NgoDashboard> {
+  FirebaseFirestore? _victimFirestore;
+  StreamSubscription? _victimSubscription;
+
+  // life-line-victim database credentials
+  static const FirebaseOptions _victimFirebaseOptions = FirebaseOptions(
+    apiKey: 'AIzaSyCgdeU_737w9twNR2zt5dzyG5EXK5uKxR0',
+    appId: '1:909144850972:web:a9eb7a5cfcec7e437c55d9',
+    messagingSenderId: '909144850972',
+    projectId: 'life-line-victim-27aaa',
+    authDomain: 'life-line-victim-27aaa.firebaseapp.com',
+    storageBucket: 'life-line-victim-27aaa.firebasestorage.app',
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initVictimFirebase();
+    });
+  }
+
+  @override
+  void dispose() {
+    _victimSubscription?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initVictimFirebase() async {
+    if (mounted) {
+      ref.read(ngoDasboardProvider.notifier).setLoading(true);
+    }
+    try {
+      final secondaryApp = await Firebase.initializeApp(
+        name: 'life-line-victim',
+        options: _victimFirebaseOptions,
+      );
+      _victimFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
+      _listenToVictimCount();
+      if (mounted) {
+        ref.read(ngoDasboardProvider.notifier).setLoading(false);
+      }
+    } catch (e) {
+      // If already initialized, get the existing instance
+      try {
+        final existingApp = Firebase.app('life-line-victim');
+        _victimFirestore = FirebaseFirestore.instanceFor(app: existingApp);
+        _listenToVictimCount();
+        if (mounted) {
+          ref.read(ngoDasboardProvider.notifier).setLoading(false);
+        }
+      } catch (e) {
+        if (mounted) {
+          ref.read(ngoDasboardProvider.notifier).setLoading(false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('An unexpected error occurred, Please re-login'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const NgoAuth()),
+          );
+        }
+      }
+    }
+  }
+
+  void _listenToVictimCount() {
+    if (_victimFirestore == null) return;
+
+    try {
+      // Cancel existing subscription before reassigning
+      _victimSubscription?.cancel();
+      _victimSubscription = _victimFirestore!
+          .collection('users')
+          .snapshots()
+          .listen((snapshot) {
+            if (!mounted) return;
+            final victimCount = snapshot.docs.length;
+            if (mounted) {
+              ref
+                  .read(ngoDasboardProvider.notifier)
+                  .setVictimCount(victimCount);
+            }
+          });
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.softBackground,
       drawer: buildDrawer(context),
@@ -112,11 +212,15 @@ class NgoDashboard extends ConsumerWidget {
   }
 
   Widget _buildStatusSection(bool isCompact) {
+    final victimCount = ref.watch(
+      ngoDasboardProvider.select((v) => v.victimCount),
+    );
+
     final stats = [
       {
-        'title': 'Active Ops',
-        'value': '8',
-        'subtitle': '2 New',
+        'title': 'Active Users',
+        'value': victimCount.toString(),
+        'subtitle': 'Registered Victims',
         'color': Colors.orange,
       },
       {

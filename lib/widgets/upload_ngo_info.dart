@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dropzone/flutter_dropzone.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_ngo/widgets/ngo_file_size.dart';
-import 'package:life_line_ngo/model/ngo_reg_provider.dart';
+import 'package:life_line_ngo/providers/ngo_reg_provider.dart';
 import 'package:life_line_ngo/styles/styles.dart';
 
 class UploadNgoFile extends ConsumerStatefulWidget {

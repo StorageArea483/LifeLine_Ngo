@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:life_line_ngo/model/ngo_select_screen_provider.dart';
+import 'package:life_line_ngo/providers/ngo_select_screen_provider.dart';
 import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/pages/ngo_registration.dart';
 import 'package:life_line_ngo/pages/ngo_auth.dart';

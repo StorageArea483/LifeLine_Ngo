@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:life_line_ngo/model/ngo_dasboard_provider.dart';
+import 'package:life_line_ngo/providers/ngo_dasboard_provider.dart';
 import 'package:life_line_ngo/pages/ngo_auth.dart';
 import 'package:life_line_ngo/pages/ngo_dashboard.dart';
 import 'package:life_line_ngo/styles/styles.dart';
@@ -54,6 +54,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       );
       _victimFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
       _listenToVictims();
+      if (mounted) ref.read(ngoDasboardProvider.notifier).setLoading(false);
     } catch (e) {
       if (mounted) {
         ref.read(ngoDasboardProvider.notifier).setLoading(false);
@@ -72,9 +73,10 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
 
   void _listenToVictims() {
     if (_victimFirestore == null) return;
-    if (mounted) ref.read(ngoDasboardProvider.notifier).setLoading(true);
 
     try {
+      // Cancel existing subscription before reassigning
+      _victimSubscription?.cancel();
       _victimSubscription = _victimFirestore!
           .collection('users')
           .snapshots()
@@ -98,12 +100,10 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
 
               if (mounted) {
                 ref.read(ngoDasboardProvider.notifier).setVictims(finalList);
-                ref.read(ngoDasboardProvider.notifier).setLoading(false);
               }
             },
             onError: (error) {
               if (mounted) {
-                ref.read(ngoDasboardProvider.notifier).setLoading(false);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Error loading victims, please try again'),
@@ -114,15 +114,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
             },
           );
     } catch (e) {
-      if (mounted) {
-        ref.read(ngoDasboardProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error fetching victims, please try again'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
+      rethrow;
     }
   }
 

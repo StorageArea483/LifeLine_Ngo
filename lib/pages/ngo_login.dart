@@ -2,8 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:life_line_ngo/model/ngo_login_provider.dart';
+import 'package:life_line_ngo/providers/ngo_login_provider.dart';
 import 'package:life_line_ngo/pages/ngo_dashboard.dart';
 import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/pages/ngo_auth.dart';
@@ -21,13 +22,31 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
+  // Firestore instances
+  FirebaseFirestore? _adminFirestore;
+  final FirebaseFirestore _ngoFirestore = FirebaseFirestore.instance;
+
   // Stream subscriptions
   StreamSubscription? settingsSubscription;
   StreamSubscription? approvedSubscription;
 
-  // Tracked login state
-  String? _loggedInEmail;
-  String? _loggedInPassword;
+  // life-line-admin project credentials
+  static const FirebaseOptions _adminFirebaseOptions = FirebaseOptions(
+    apiKey: 'AIzaSyCEoP-ISJx1dn1EM7Pt3ikEXlSCkmcpMLY',
+    appId: '1:135703361476:web:3a4d9e2ec37c8e3d125691',
+    messagingSenderId: '135703361476',
+    projectId: 'life-line-admin',
+    authDomain: 'life-line-admin.firebaseapp.com',
+    storageBucket: 'life-line-admin.firebasestorage.app',
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initSecondaryFirebase();
+    });
+  }
 
   @override
   void dispose() {
@@ -38,13 +57,61 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
     super.dispose();
   }
 
-  void _startLoginSubscriptions(String email, String password) {
-    _loggedInEmail = email;
-    _loggedInPassword = password;
-
-    // Listen to settings for auto_approved changes
+  Future<void> _initSecondaryFirebase() async {
+    if (mounted) {
+      ref.read(ngoLoginProvider.notifier).setLoading(true);
+    }
     try {
-      settingsSubscription = FirebaseFirestore.instance
+      // Initialize secondary Firebase app for life-line-admin
+      final secondaryApp = await Firebase.initializeApp(
+        name: 'life-line-admin',
+        options: _adminFirebaseOptions,
+      );
+      _adminFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
+      if (mounted) {
+        ref.read(ngoLoginProvider.notifier).setLoading(false);
+      }
+    } catch (e) {
+      // If already initialized, get the existing instance
+      try {
+        final existingApp = Firebase.app('life-line-admin');
+        _adminFirestore = FirebaseFirestore.instanceFor(app: existingApp);
+        if (mounted) {
+          ref.read(ngoLoginProvider.notifier).setLoading(false);
+        }
+      } catch (e) {
+        if (mounted) {
+          ref.read(ngoLoginProvider.notifier).setLoading(false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('An unexpected error occurred, please try again'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _startLoginSubscriptions(String email, String password) {
+    if (_adminFirestore == null) {
+      if (mounted) {
+        ref.read(ngoLoginProvider.notifier).setLoading(false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('An unexpected error occurred. Please try again.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Listen to settings from life-line-admin for auto_approved changes
+    try {
+      // Cancel existing subscription before reassigning
+      settingsSubscription?.cancel();
+      settingsSubscription = _adminFirestore!
           .collection('settings')
           .snapshots()
           .listen((settingsSnapshot) {
@@ -53,11 +120,12 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
             bool autoApprovedValue = false;
             if (settingsSnapshot.docs.isNotEmpty) {
               final settingsData = settingsSnapshot.docs.first.data();
-              autoApprovedValue = settingsData['auto_approved'] ?? false;
+              autoApprovedValue = settingsData['auto approved'] ?? false;
             }
 
             if (autoApprovedValue) {
               if (mounted) {
+                ref.read(ngoLoginProvider.notifier).setLoading(false);
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text('Successfully logged in'),
@@ -71,11 +139,13 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
               return;
             }
 
-            // Auto approval is OFF — listen to this NGO's approved field
-            approvedSubscription = FirebaseFirestore.instance
+            // Auto approval is OFF — listen to this NGO's approved field in life-line-ngo
+            // Cancel existing subscription before reassigning
+            approvedSubscription?.cancel();
+            approvedSubscription = _ngoFirestore
                 .collection('ngo-info-database')
-                .where('email', isEqualTo: _loggedInEmail)
-                .where('password', isEqualTo: _loggedInPassword)
+                .where('email', isEqualTo: email)
+                .where('password', isEqualTo: password)
                 .snapshots()
                 .listen((snapshot) {
                   if (!mounted) return;
@@ -87,6 +157,7 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
 
                   if (isApproved) {
                     if (mounted) {
+                      ref.read(ngoLoginProvider.notifier).setLoading(false);
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Successfully logged in'),
@@ -115,17 +186,7 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
                 });
           });
     } catch (e) {
-      if (mounted) {
-        ref.read(ngoLoginProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'An unexpected error occurred. Please refresh the page',
-            ),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
+      rethrow;
     }
   }
 
@@ -139,8 +200,8 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
         final email = emailController.text.trim();
         final password = passwordController.text.trim();
 
-        // First verify credentials exist in Firestore
-        final snapshot = await FirebaseFirestore.instance
+        // First verify credentials exist in life-line-ngo Firestore
+        final snapshot = await _ngoFirestore
             .collection('ngo-info-database')
             .where('email', isEqualTo: email)
             .where('password', isEqualTo: password)
