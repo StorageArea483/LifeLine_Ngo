@@ -179,6 +179,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
             ),
             Consumer(
               builder: (context, ref, child) {
+                if (!mounted) return const SizedBox.shrink();
                 final isLoading = ref.watch(
                   ngoDasboardProvider.select((v) => v.isLoading),
                 );

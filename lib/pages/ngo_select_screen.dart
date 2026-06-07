@@ -16,23 +16,40 @@ class _NgoSelectScreenState extends State<NgoSelectScreen> {
   final List<Map<String, String>> ngoList = [
     {
       'name': 'Alkhidmat Foundation',
-      'image': 'assets/Logos/Alkhidmat_Logo.webp',
+      'image': 'assets/offline_logos/Alkhidmat Foundation.webp',
     },
     {
       'name': 'Saibaan Development Organization',
-      'image': 'assets/Logos/Saibaan_Organiztion_Logo.webp',
+      'image': 'assets/offline_logos/Saibaan Development Organization.webp',
     },
     {
-      'name': 'Rural Development Organization (RDO) Abbottabad',
-      'image': 'assets/Logos/Rural_Development_Organization.webp',
+      'name': 'Rural Development Organization',
+      'image': 'assets/offline_logos/Rural Development Organization.webp',
     },
     {
-      'name': 'Omar Asghar Khan Foundation',
-      'image': 'assets/Logos/Omar_Asghar_Foundation_Logo.webp',
+      'name': 'Omar Asghar Foundation',
+      'image': 'assets/offline_logos/Omar Asghar Foundation.webp',
     },
     {
-      'name': 'Pak Irish Rehabilitation Centre (PIRC)',
-      'image': 'assets/Logos/Pak_Irish_Center_Logo.webp',
+      'name': 'Pak Irish Center',
+      'image': 'assets/offline_logos/Pak Irish Center.webp',
+    },
+    {
+      'name': 'Ayub Teaching Hospital (ATH)',
+      'image': 'assets/offline_logos/Ayub Teaching Hospital (ATH).webp',
+    },
+    {
+      'name': 'Benazir Hospital (DHQ Abbottabad)',
+      'image': 'assets/offline_logos/Benazir Hospital (DHQ Abbottabad).webp',
+    },
+    {
+      'name': 'INOR Nuclear Medicine & Oncology',
+      'image': 'assets/offline_logos/INOR Nuclear Medicine & Oncology.webp',
+    },
+    {'name': 'PDMA KPK', 'image': 'assets/offline_logos/PDMA KPK.webp'},
+    {
+      'name': 'Rescue 1122 KPK Abbottabad',
+      'image': 'assets/offline_logos/Rescue 1122 KPK Abbottabad.webp',
     },
   ];
 
@@ -285,6 +302,9 @@ class _NgoSelectScreenState extends State<NgoSelectScreen> {
                                         : AppSizes.submitButtonHeight,
                                     child: Consumer(
                                       builder: (context, ref, child) {
+                                        if (!mounted) {
+                                          return const SizedBox.shrink();
+                                        }
                                         final selectedIndex = ref.watch(
                                           selectedIndexProvider,
                                         );

@@ -5,9 +5,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_ngo/providers/ngo_login_provider.dart';
+import 'package:life_line_ngo/providers/ngo_dasboard_provider.dart';
 import 'package:life_line_ngo/pages/ngo_dashboard.dart';
 import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/pages/ngo_auth.dart';
+import 'dart:developer' as developer;
 
 class NgoLogin extends ConsumerStatefulWidget {
   const NgoLogin({super.key});
@@ -25,10 +27,6 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
   // Firestore instances
   FirebaseFirestore? _adminFirestore;
   final FirebaseFirestore _ngoFirestore = FirebaseFirestore.instance;
-
-  // Stream subscriptions
-  StreamSubscription? settingsSubscription;
-  StreamSubscription? approvedSubscription;
 
   // life-line-admin project credentials
   static const FirebaseOptions _adminFirebaseOptions = FirebaseOptions(
@@ -52,8 +50,6 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
   void dispose() {
     emailController.dispose();
     passwordController.dispose();
-    settingsSubscription?.cancel();
-    approvedSubscription?.cancel();
     super.dispose();
   }
 
@@ -93,7 +89,7 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
     }
   }
 
-  void _startLoginSubscriptions(String email, String password) {
+  Future<void> _checkLoginApproval(String email, String password) async {
     if (_adminFirestore == null) {
       if (mounted) {
         ref.read(ngoLoginProvider.notifier).setLoading(false);
@@ -107,86 +103,132 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
       return;
     }
 
-    // Listen to settings from life-line-admin for auto_approved changes
     try {
-      // Cancel existing subscription before reassigning
-      settingsSubscription?.cancel();
-      settingsSubscription = _adminFirestore!
+      // Check settings from life-line-admin for auto_approved value
+      final settingsSnapshot = await _adminFirestore!
           .collection('settings')
-          .snapshots()
-          .listen((settingsSnapshot) {
-            if (!mounted) return;
+          .limit(1)
+          .get();
 
-            bool autoApprovedValue = false;
-            if (settingsSnapshot.docs.isNotEmpty) {
-              final settingsData = settingsSnapshot.docs.first.data();
-              autoApprovedValue = settingsData['auto approved'] ?? false;
-            }
+      if (!mounted) return;
 
-            if (autoApprovedValue) {
-              if (mounted) {
-                ref.read(ngoLoginProvider.notifier).setLoading(false);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Successfully logged in'),
-                    backgroundColor: AppColors.success,
-                  ),
-                );
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (context) => const NgoDashboard()),
-                );
-              }
-              return;
-            }
+      bool autoApprovedValue = false;
+      if (settingsSnapshot.docs.isNotEmpty) {
+        final settingsData = settingsSnapshot.docs.first.data();
+        autoApprovedValue = settingsData['auto approved'] ?? false;
+      }
 
-            // Auto approval is OFF — listen to this NGO's approved field in life-line-ngo
-            // Cancel existing subscription before reassigning
-            approvedSubscription?.cancel();
-            approvedSubscription = _ngoFirestore
-                .collection('ngo-info-database')
-                .where('email', isEqualTo: email)
-                .where('password', isEqualTo: password)
-                .snapshots()
-                .listen((snapshot) {
-                  if (!mounted) return;
+      if (autoApprovedValue && mounted) {
+        // Auto approval is ON — login directly
+        final idExtracted = await _storeNgoDocId(email, password);
+        ref.read(ngoLoginProvider.notifier).setLoading(false);
 
-                  if (snapshot.docs.isEmpty) return;
+        if (idExtracted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Successfully logged in'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const NgoDashboard()),
+          );
+        }
+      }
 
-                  final data = snapshot.docs.first.data();
-                  final isApproved = data['approved'] ?? false;
+      // Auto approval is OFF — check this NGO's approved field in life-line-ngo
+      final snapshot = await _ngoFirestore
+          .collection('ngo-info-database')
+          .where('email', isEqualTo: email)
+          .where('password', isEqualTo: password)
+          .limit(1)
+          .get();
 
-                  if (isApproved) {
-                    if (mounted) {
-                      ref.read(ngoLoginProvider.notifier).setLoading(false);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Successfully logged in'),
-                          backgroundColor: AppColors.success,
-                        ),
-                      );
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (context) => const NgoDashboard(),
-                        ),
-                      );
-                    }
-                  } else {
-                    if (mounted) {
-                      ref.read(ngoLoginProvider.notifier).setLoading(false);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Your request is being processed, please wait for a moment',
-                          ),
-                          backgroundColor: AppColors.warning,
-                        ),
-                      );
-                    }
-                  }
-                });
-          });
+      if (!mounted) return;
+
+      if (snapshot.docs.isEmpty) {
+        ref.read(ngoLoginProvider.notifier).setLoading(false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Invalid email or password'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+
+      final data = snapshot.docs.first.data();
+      final isApproved = data['approved'] ?? false;
+
+      if (isApproved && mounted) {
+        // NGO is approved — proceed with login
+        final idExtracted = await _storeNgoDocId(email, password);
+        ref.read(ngoLoginProvider.notifier).setLoading(false);
+
+        if (idExtracted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Successfully logged in'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (context) => const NgoDashboard()),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('An unexpected error occurred, please retry'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      } else {
+        // NGO is not approved yet
+        ref.read(ngoLoginProvider.notifier).setLoading(false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Your request is being processed, please wait for approval',
+            ),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+      }
     } catch (e) {
-      rethrow;
+      if (mounted) {
+        ref.read(ngoLoginProvider.notifier).setLoading(false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('An unexpected error occurred, please retry'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<bool> _storeNgoDocId(String email, String password) async {
+    try {
+      final snapshot = await _ngoFirestore
+          .collection('ngo-info-database')
+          .where('email', isEqualTo: email)
+          .where('password', isEqualTo: password)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty && mounted) {
+        final ngoDocId = snapshot.docs.first.id;
+        developer.log('Storing NGO Doc ID: $ngoDocId');
+        ref.read(ngoDasboardProvider.notifier).setNgoDocId(ngoDocId);
+        return true;
+      } else {
+        developer.log('No NGO document found or widget not mounted');
+      }
+      return false;
+    } catch (e) {
+      developer.log('Error storing NGO doc ID: $e');
+      return false;
     }
   }
 
@@ -220,8 +262,8 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
             );
           }
         } else {
-          // Credentials verified — start stream subscriptions
-          _startLoginSubscriptions(email, password);
+          // Credentials verified — check login approval
+          _checkLoginApproval(email, password);
         }
       } catch (e) {
         if (mounted) {

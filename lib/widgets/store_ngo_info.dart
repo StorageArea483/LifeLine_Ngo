@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 Future<String> addUserDetails({
   String? docId,
   String? ngoName,
-  String? ngoLogo,
   String? registrationNumber,
   String? address,
   String? branchName,
@@ -19,7 +18,6 @@ Future<String> addUserDetails({
 }) async {
   final data = {
     'ngoName': ngoName,
-    'ngoLogo': ngoLogo,
     'registrationNumber': registrationNumber,
     'address': address,
     'branchName': branchName,
@@ -33,7 +31,6 @@ Future<String> addUserDetails({
     'selectedProgram': selectedProgram,
     'documentUrl': documentUrl,
     'approved': false,
-    'updatedAt': FieldValue.serverTimestamp(),
   };
 
   // If docId exists, update the existing document

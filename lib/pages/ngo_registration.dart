@@ -171,7 +171,6 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
         _docId = await addUserDetails(
           docId: _docId,
           ngoName: widget.ngoName,
-          ngoLogo: widget.ngoLogo,
           registrationNumber: registrationNumberController.text.trim(),
           address: addressController.text.trim(),
           branchName: branchNameController.text.trim(),
@@ -645,10 +644,10 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                                       return 'Director / CEO name is required';
                                     }
                                     final regExp = RegExp(
-                                      r"^[A-Za-z]+(?:[ .-][A-Za-z]+)*$",
+                                      r"^[A-Za-z]+\.?(?:[ -][A-Za-z]+\.?)*$",
                                     );
                                     if (!regExp.hasMatch(value.trim())) {
-                                      return 'Enter a valid name (letters only, no numbers or symbols)';
+                                      return 'Enter a valid name (e.g., Dr. John Smith, Ms. Jane Doe)';
                                     }
                                     return null;
                                   },
@@ -668,10 +667,10 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                                       return 'Project Manager name is required';
                                     }
                                     final regExp = RegExp(
-                                      r"^[A-Za-z]+(?:[ .-][A-Za-z]+)*$",
+                                      r"^[A-Za-z]+\.?(?:[ -][A-Za-z]+\.?)*$",
                                     );
                                     if (!regExp.hasMatch(value.trim())) {
-                                      return 'Enter a valid name (letters only, no numbers or symbols)';
+                                      return 'Enter a valid name (e.g., Dr. John Smith, Ms. Jane Doe)';
                                     }
                                     return null;
                                   },

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:life_line_ngo/pages/ngo_login.dart';
 import 'package:life_line_ngo/providers/ngo_dasboard_provider.dart';
 import 'package:life_line_ngo/pages/ngo_auth.dart';
 import 'package:life_line_ngo/pages/show_victim_info.dart';
@@ -18,7 +19,9 @@ class NgoDashboard extends ConsumerStatefulWidget {
 
 class _NgoDashboardState extends ConsumerState<NgoDashboard> {
   FirebaseFirestore? _victimFirestore;
+  final FirebaseFirestore _ngoFirestore = FirebaseFirestore.instance;
   StreamSubscription? _victimSubscription;
+  StreamSubscription? _requestSubscription;
 
   // life-line-victim database credentials
   static const FirebaseOptions _victimFirebaseOptions = FirebaseOptions(
@@ -35,12 +38,14 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initVictimFirebase();
+      _listenToRequestCount(); // Fetch requests from ngo-firestore
     });
   }
 
   @override
   void dispose() {
     _victimSubscription?.cancel();
+    _requestSubscription?.cancel();
     super.dispose();
   }
 
@@ -107,6 +112,42 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
     }
   }
 
+  void _listenToRequestCount() {
+    try {
+      if (!mounted) return;
+      final ngoDocId = ref.read(ngoDasboardProvider).ngoDocId;
+      if (ngoDocId == null) return;
+
+      // Cancel existing subscription before reassigning
+      _requestSubscription?.cancel();
+      _requestSubscription = _ngoFirestore
+          .collection('requests')
+          .where('ngoId', isEqualTo: ngoDocId)
+          .snapshots()
+          .listen((snapshot) {
+            if (!mounted) return;
+            final requestCount = snapshot.docs.length;
+            if (mounted) {
+              ref
+                  .read(ngoDasboardProvider.notifier)
+                  .setNotificationCount(requestCount);
+            }
+          });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('An unexpected error occurred, please retry'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const NgoLogin()),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -162,9 +203,11 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
         'title': 'View Victims',
         'icon': Icons.people_outline,
         'onTap': () {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const ShowVictimInfo()),
-          );
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const ShowVictimInfo()),
+            );
+          }
         },
       },
       {'title': 'Relief Operations', 'icon': Icons.location_on, 'onTap': () {}},
@@ -212,8 +255,13 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
   }
 
   Widget _buildStatusSection(bool isCompact) {
+    if (!mounted) return const SizedBox.shrink();
     final victimCount = ref.watch(
       ngoDasboardProvider.select((v) => v.victimCount),
+    );
+    if (!mounted) return const SizedBox.shrink();
+    final notificationCount = ref.watch(
+      ngoDasboardProvider.select((v) => v.notificationCount),
     );
 
     final stats = [
@@ -222,24 +270,29 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
         'value': victimCount.toString(),
         'subtitle': 'Registered Victims',
         'color': Colors.orange,
+        'hasNotification': false,
       },
       {
         'title': 'Volunteers',
         'value': '150',
         'subtitle': '+12 On-site',
         'color': Colors.purple,
+        'hasNotification': false,
       },
       {
         'title': 'Critical Alerts',
         'value': '3',
         'subtitle': 'Needs Attention',
         'color': Colors.red,
+        'hasNotification': true,
+        'notificationCount': notificationCount,
       },
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: AppSpacing.xxl),
         Text(
           'NGO Command Center',
           style: AppText.appHeader.copyWith(
@@ -247,7 +300,7 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.xxl),
         Text(
           'Welcome back. Here is the current status of relief operations.',
           style: AppText.formDescription.copyWith(
@@ -267,6 +320,9 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
                       value: stat['value'] as String,
                       subtitle: stat['subtitle'] as String,
                       color: stat['color'] as Color,
+                      hasNotification:
+                          stat['hasNotification'] as bool? ?? false,
+                      notificationCount: stat['notificationCount'] as int? ?? 0,
                     ),
                   ),
                 )
@@ -291,6 +347,10 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
                           value: entry.value['value'] as String,
                           subtitle: entry.value['subtitle'] as String,
                           color: entry.value['color'] as Color,
+                          hasNotification:
+                              entry.value['hasNotification'] as bool? ?? false,
+                          notificationCount:
+                              entry.value['notificationCount'] as int? ?? 0,
                         ),
                       ),
                     ),
@@ -362,65 +422,105 @@ class _StatCard extends StatelessWidget {
   final String value;
   final String subtitle;
   final Color color;
+  final bool hasNotification;
+  final int notificationCount;
 
   const _StatCard({
     required this.title,
     required this.value,
     required this.subtitle,
     required this.color,
+    this.hasNotification = false,
+    this.notificationCount = 0,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.xxl),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.darkCharcoal.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.people, color: color, size: 24),
-              const SizedBox(width: AppSpacing.sm),
-              Flexible(
-                child: Text(
-                  title,
-                  style: AppText.fieldLabel.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 14,
-                  ),
-                ),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () {
+          if (title == 'Active Users') {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const ShowVictimInfo()),
+            );
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.darkCharcoal.withValues(alpha: 0.06),
+                blurRadius: 12,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            value,
-            style: AppText.welcomeTitle.copyWith(
-              fontSize: 32,
-              color: AppColors.darkCharcoal,
-            ),
+          child: Stack(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.people, color: color, size: 24),
+                      const SizedBox(width: AppSpacing.sm),
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: AppText.fieldLabel.copyWith(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    value,
+                    style: AppText.welcomeTitle.copyWith(
+                      fontSize: 32,
+                      color: AppColors.darkCharcoal,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    subtitle,
+                    style: AppText.small.copyWith(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              if (hasNotification && notificationCount > 0)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      notificationCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            subtitle,
-            style: AppText.small.copyWith(
-              color: AppColors.success,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
