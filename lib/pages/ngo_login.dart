@@ -9,7 +9,6 @@ import 'package:life_line_ngo/providers/ngo_dasboard_provider.dart';
 import 'package:life_line_ngo/pages/ngo_dashboard.dart';
 import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/pages/ngo_auth.dart';
-import 'dart:developer' as developer;
 
 class NgoLogin extends ConsumerStatefulWidget {
   const NgoLogin({super.key});
@@ -124,12 +123,6 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
         ref.read(ngoLoginProvider.notifier).setLoading(false);
 
         if (idExtracted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Successfully logged in'),
-              backgroundColor: AppColors.success,
-            ),
-          );
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const NgoDashboard()),
           );
@@ -166,12 +159,6 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
         ref.read(ngoLoginProvider.notifier).setLoading(false);
 
         if (idExtracted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Successfully logged in'),
-              backgroundColor: AppColors.success,
-            ),
-          );
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const NgoDashboard()),
           );
@@ -219,15 +206,11 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
 
       if (snapshot.docs.isNotEmpty && mounted) {
         final ngoDocId = snapshot.docs.first.id;
-        developer.log('Storing NGO Doc ID: $ngoDocId');
         ref.read(ngoDasboardProvider.notifier).setNgoDocId(ngoDocId);
         return true;
-      } else {
-        developer.log('No NGO document found or widget not mounted');
       }
       return false;
     } catch (e) {
-      developer.log('Error storing NGO doc ID: $e');
       return false;
     }
   }

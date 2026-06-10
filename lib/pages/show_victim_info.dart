@@ -19,7 +19,6 @@ class ShowVictimInfo extends ConsumerStatefulWidget {
 class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   final TextEditingController _searchController = TextEditingController();
   FirebaseFirestore? _victimFirestore;
-  StreamSubscription? _victimSubscription;
 
   static const FirebaseOptions _victimFirebaseOptions = FirebaseOptions(
     apiKey: 'AIzaSyCgdeU_737w9twNR2zt5dzyG5EXK5uKxR0',
@@ -41,7 +40,6 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   @override
   void dispose() {
     _searchController.dispose();
-    _victimSubscription?.cancel();
     super.dispose();
   }
 
@@ -53,7 +51,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
         options: _victimFirebaseOptions,
       );
       _victimFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
-      _listenToVictims();
+      await _fetchVictims();
       if (mounted) ref.read(ngoDasboardProvider.notifier).setLoading(false);
     } catch (e) {
       if (mounted) {
@@ -71,49 +69,38 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     }
   }
 
-  void _listenToVictims() {
+  Future<void> _fetchVictims() async {
     if (_victimFirestore == null) return;
 
     try {
-      // Cancel existing subscription before reassigning
-      _victimSubscription?.cancel();
-      _victimSubscription = _victimFirestore!
-          .collection('users')
-          .snapshots()
-          .listen(
-            (snapshot) {
-              if (!mounted) return;
-              final allVictims = snapshot.docs
-                  .map((doc) => doc.data())
-                  .toList();
-              final searchTerm = _searchController.text;
-              List<Map<String, dynamic>> finalList;
+      final snapshot = await _victimFirestore!.collection('users').get();
+      if (!mounted) return;
 
-              if (searchTerm.isEmpty) {
-                finalList = allVictims;
-              } else {
-                finalList = allVictims.where((victim) {
-                  final name = (victim['name'] ?? '').toString();
-                  return name.toLowerCase().contains(searchTerm.toLowerCase());
-                }).toList();
-              }
+      final allVictims = snapshot.docs.map((doc) => doc.data()).toList();
+      final searchTerm = _searchController.text;
+      List<Map<String, dynamic>> finalList;
 
-              if (mounted) {
-                ref.read(ngoDasboardProvider.notifier).setVictims(finalList);
-              }
-            },
-            onError: (error) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Error loading victims, please try again'),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
-              }
-            },
-          );
+      if (searchTerm.isEmpty) {
+        finalList = allVictims;
+      } else {
+        finalList = allVictims.where((victim) {
+          final name = (victim['name'] ?? '').toString();
+          return name.toLowerCase().contains(searchTerm.toLowerCase());
+        }).toList();
+      }
+
+      if (mounted) {
+        ref.read(ngoDasboardProvider.notifier).setVictims(finalList);
+      }
     } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error loading victims, please try again'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
       rethrow;
     }
   }
@@ -332,7 +319,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: _listenToVictims,
+                    onPressed: _fetchVictims,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryMaroon,
                       foregroundColor: Colors.white,
@@ -387,7 +374,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: _listenToVictims,
+                    onPressed: _fetchVictims,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryMaroon,
                       foregroundColor: Colors.white,

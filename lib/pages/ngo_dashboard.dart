@@ -3,9 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:life_line_ngo/pages/critical_alerts.dart';
 import 'package:life_line_ngo/pages/ngo_login.dart';
 import 'package:life_line_ngo/providers/ngo_dasboard_provider.dart';
-import 'package:life_line_ngo/pages/ngo_auth.dart';
 import 'package:life_line_ngo/pages/show_victim_info.dart';
 import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/widgets/nav_bar.dart';
@@ -20,8 +21,8 @@ class NgoDashboard extends ConsumerStatefulWidget {
 class _NgoDashboardState extends ConsumerState<NgoDashboard> {
   FirebaseFirestore? _victimFirestore;
   final FirebaseFirestore _ngoFirestore = FirebaseFirestore.instance;
-  StreamSubscription? _victimSubscription;
   StreamSubscription? _requestSubscription;
+  late AudioPlayer _audioPlayer;
 
   // life-line-victim database credentials
   static const FirebaseOptions _victimFirebaseOptions = FirebaseOptions(
@@ -36,16 +37,37 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
   @override
   void initState() {
     super.initState();
+    _audioPlayer = AudioPlayer();
+    _initializeAudio(); // initializes audio on loop
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initVictimFirebase();
       _listenToRequestCount(); // Fetch requests from ngo-firestore
     });
   }
 
+  Future<void> _initializeAudio() async {
+    try {
+      await _audioPlayer.setAsset('assets/audio/warning-sound.mp3');
+      await _audioPlayer.setLoopMode(LoopMode.all);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('An unexpected error occurred, please retry'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => const NgoLogin()),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
-    _victimSubscription?.cancel();
     _requestSubscription?.cancel();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
@@ -59,7 +81,7 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
         options: _victimFirebaseOptions,
       );
       _victimFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
-      _listenToVictimCount();
+      await _fetchVictimCount();
       if (mounted) {
         ref.read(ngoDasboardProvider.notifier).setLoading(false);
       }
@@ -68,7 +90,7 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
       try {
         final existingApp = Firebase.app('life-line-victim');
         _victimFirestore = FirebaseFirestore.instanceFor(app: existingApp);
-        _listenToVictimCount();
+        await _fetchVictimCount();
         if (mounted) {
           ref.read(ngoDasboardProvider.notifier).setLoading(false);
         }
@@ -82,31 +104,23 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
             ),
           );
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const NgoAuth()),
+            MaterialPageRoute(builder: (context) => const NgoLogin()),
           );
         }
       }
     }
   }
 
-  void _listenToVictimCount() {
+  Future<void> _fetchVictimCount() async {
     if (_victimFirestore == null) return;
 
     try {
-      // Cancel existing subscription before reassigning
-      _victimSubscription?.cancel();
-      _victimSubscription = _victimFirestore!
-          .collection('users')
-          .snapshots()
-          .listen((snapshot) {
-            if (!mounted) return;
-            final victimCount = snapshot.docs.length;
-            if (mounted) {
-              ref
-                  .read(ngoDasboardProvider.notifier)
-                  .setVictimCount(victimCount);
-            }
-          });
+      final snapshot = await _victimFirestore!.collection('users').get();
+      if (!mounted) return;
+      final victimCount = snapshot.docs.length;
+      if (mounted) {
+        ref.read(ngoDasboardProvider.notifier).setVictimCount(victimCount);
+      }
     } catch (e) {
       rethrow;
     }
@@ -131,18 +145,50 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
               ref
                   .read(ngoDasboardProvider.notifier)
                   .setNotificationCount(requestCount);
+
+              // Play or stop audio based on request count
+              _handleAudioPlayback(requestCount);
             }
           });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('An unexpected error occurred, please retry'),
+            content: Text('Audio, failed to start'),
             backgroundColor: AppColors.error,
           ),
         );
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (context) => const NgoLogin()),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleAudioPlayback(int requestCount) async {
+    try {
+      if (requestCount > 0) {
+        if (!_audioPlayer.playing) {
+          await _audioPlayer.play();
+        }
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> _stopAudio() async {
+    try {
+      if (_audioPlayer.playing) {
+        await _audioPlayer.stop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to stop audio'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     }
@@ -286,6 +332,7 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
         'color': Colors.red,
         'hasNotification': true,
         'notificationCount': notificationCount,
+        'onTap': _stopAudio,
       },
     ];
 
@@ -323,6 +370,7 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
                       hasNotification:
                           stat['hasNotification'] as bool? ?? false,
                       notificationCount: stat['notificationCount'] as int? ?? 0,
+                      onTap: stat['onTap'] as VoidCallback?,
                     ),
                   ),
                 )
@@ -351,6 +399,7 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
                               entry.value['hasNotification'] as bool? ?? false,
                           notificationCount:
                               entry.value['notificationCount'] as int? ?? 0,
+                          onTap: entry.value['onTap'] as VoidCallback?,
                         ),
                       ),
                     ),
@@ -424,6 +473,7 @@ class _StatCard extends StatelessWidget {
   final Color color;
   final bool hasNotification;
   final int notificationCount;
+  final VoidCallback? onTap;
 
   const _StatCard({
     required this.title,
@@ -432,6 +482,7 @@ class _StatCard extends StatelessWidget {
     required this.color,
     this.hasNotification = false,
     this.notificationCount = 0,
+    this.onTap,
   });
 
   @override
@@ -444,6 +495,14 @@ class _StatCard extends StatelessWidget {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (context) => const ShowVictimInfo()),
             );
+          } else if (title == 'Critical Alerts') {
+            // Stop audio playback
+            onTap?.call();
+            if (context.mounted) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (context) => const CriticalAlerts()),
+              );
+            }
           }
         },
         child: Container(
