@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:life_line_ngo/pages/critical_alerts.dart';
+import 'package:life_line_ngo/pages/manage_rescuers.dart';
 import 'package:life_line_ngo/pages/ngo_login.dart';
 import 'package:life_line_ngo/providers/ngo_dasboard_provider.dart';
 import 'package:life_line_ngo/pages/show_victim_info.dart';
@@ -42,6 +43,7 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initVictimFirebase();
       _listenToRequestCount(); // Fetch requests from ngo-firestore
+      _fetchRescuerCount(); // Fetch rescuer requests from ngo-info-database
     });
   }
 
@@ -165,6 +167,36 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
     }
   }
 
+  Future<void> _fetchRescuerCount() async {
+    try {
+      if (!mounted) return;
+      final ngoDocId = ref.read(ngoDasboardProvider).ngoDocId;
+      if (ngoDocId == null) return;
+
+      final snapshot = await _ngoFirestore
+          .collection('ngo-info-database')
+          .doc(ngoDocId)
+          .collection('rescuer-requests')
+          .get();
+
+      if (!mounted) return;
+      final rescuerCount = snapshot.docs.length;
+
+      if (mounted) {
+        ref.read(ngoDasboardProvider.notifier).setRescuerCount(rescuerCount);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to fetch rescuer requests'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> _handleAudioPlayback(int requestCount) async {
     try {
       if (requestCount > 0) {
@@ -257,7 +289,17 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
         },
       },
       {'title': 'Relief Operations', 'icon': Icons.location_on, 'onTap': () {}},
-      {'title': 'Manage Volunteers', 'icon': Icons.group, 'onTap': () {}},
+      {
+        'title': 'Manage Volunteers',
+        'icon': Icons.group,
+        'onTap': () {
+          if (mounted) {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const ManageRescuers()),
+            );
+          }
+        },
+      },
       {'title': 'Submit Reports', 'icon': Icons.description, 'onTap': () {}},
     ];
 
@@ -309,6 +351,10 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
     final notificationCount = ref.watch(
       ngoDasboardProvider.select((v) => v.notificationCount),
     );
+    if (!mounted) return const SizedBox.shrink();
+    final rescuerCount = ref.watch(
+      ngoDasboardProvider.select((v) => v.rescuerCount),
+    );
 
     final stats = [
       {
@@ -320,10 +366,11 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
       },
       {
         'title': 'Volunteers',
-        'value': '150',
-        'subtitle': '+12 On-site',
+        'value': rescuerCount.toString(),
+        'subtitle': 'Rescuer Requests',
         'color': Colors.purple,
-        'hasNotification': false,
+        'hasNotification': true,
+        'notificationCount': rescuerCount,
       },
       {
         'title': 'Critical Alerts',
@@ -494,6 +541,10 @@ class _StatCard extends StatelessWidget {
           if (title == 'Active Users') {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(builder: (context) => const ShowVictimInfo()),
+            );
+          } else if (title == 'Volunteers') {
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(builder: (context) => const ManageRescuers()),
             );
           } else if (title == 'Critical Alerts') {
             // Stop audio playback

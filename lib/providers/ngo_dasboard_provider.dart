@@ -22,6 +22,10 @@ class NgoDasboardNotifier extends StateNotifier<NgoDasboardState> {
     state = state.copyWith(notificationCount: count);
   }
 
+  void setRescuerCount(int count) {
+    state = state.copyWith(rescuerCount: count);
+  }
+
   void setNgoDocId(String docId) {
     state = state.copyWith(ngoDocId: docId);
   }
@@ -32,6 +36,7 @@ class NgoDasboardState {
   final bool isLoading;
   final int victimCount;
   final int notificationCount;
+  final int rescuerCount;
   final String? ngoDocId;
 
   const NgoDasboardState({
@@ -39,6 +44,7 @@ class NgoDasboardState {
     required this.isLoading,
     required this.victimCount,
     this.notificationCount = 0,
+    this.rescuerCount = 0,
     this.ngoDocId,
   });
 
@@ -47,6 +53,7 @@ class NgoDasboardState {
     bool? isLoading,
     int? victimCount,
     int? notificationCount,
+    int? rescuerCount,
     String? ngoDocId,
   }) {
     return NgoDasboardState(
@@ -54,6 +61,7 @@ class NgoDasboardState {
       isLoading: isLoading ?? this.isLoading,
       victimCount: victimCount ?? this.victimCount,
       notificationCount: notificationCount ?? this.notificationCount,
+      rescuerCount: rescuerCount ?? this.rescuerCount,
       ngoDocId: ngoDocId ?? this.ngoDocId,
     );
   }
