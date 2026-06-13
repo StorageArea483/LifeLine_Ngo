@@ -9,6 +9,8 @@ import 'package:life_line_ngo/providers/ngo_dasboard_provider.dart';
 import 'package:life_line_ngo/pages/ngo_dashboard.dart';
 import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/pages/ngo_auth.dart';
+import 'package:life_line_ngo/widgets/global/page_message.dart';
+import 'package:life_line_ngo/widgets/global/page_navigation.dart';
 
 class NgoLogin extends ConsumerStatefulWidget {
   const NgoLogin({super.key});
@@ -77,11 +79,10 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
       } catch (e) {
         if (mounted) {
           ref.read(ngoLoginProvider.notifier).setLoading(false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('An unexpected error occurred, please try again'),
-              backgroundColor: AppColors.error,
-            ),
+          pageMessage(
+            'An unexpected error occurred, please try again',
+            context,
+            AppColors.error,
           );
         }
       }
@@ -92,11 +93,10 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
     if (_adminFirestore == null) {
       if (mounted) {
         ref.read(ngoLoginProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('An unexpected error occurred. Please try again.'),
-            backgroundColor: AppColors.error,
-          ),
+        pageMessage(
+          'An unexpected error occurred. Please try again.',
+          context,
+          AppColors.error,
         );
       }
       return;
@@ -123,9 +123,7 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
         ref.read(ngoLoginProvider.notifier).setLoading(false);
 
         if (idExtracted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const NgoDashboard()),
-          );
+          pageNavigation(const NgoDashboard(), context);
         }
       }
 
@@ -141,12 +139,7 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
 
       if (snapshot.docs.isEmpty) {
         ref.read(ngoLoginProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Invalid email or password'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        pageMessage('Invalid email or password', context, AppColors.error);
         return;
       }
 
@@ -159,37 +152,30 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
         ref.read(ngoLoginProvider.notifier).setLoading(false);
 
         if (idExtracted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const NgoDashboard()),
-          );
+          pageNavigation(const NgoDashboard(), context);
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('An unexpected error occurred, please retry'),
-              backgroundColor: AppColors.error,
-            ),
+          pageMessage(
+            'An unexpected error occurred, please retry',
+            context,
+            AppColors.error,
           );
         }
       } else {
         // NGO is not approved yet
         ref.read(ngoLoginProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Your request is being processed, please wait for approval',
-            ),
-            backgroundColor: AppColors.warning,
-          ),
+        pageMessage(
+          'Your request is being processed, please wait for approval',
+          context,
+          AppColors.warning,
         );
       }
     } catch (e) {
       if (mounted) {
         ref.read(ngoLoginProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('An unexpected error occurred, please retry'),
-            backgroundColor: AppColors.error,
-          ),
+        pageMessage(
+          'An unexpected error occurred, please retry',
+          context,
+          AppColors.error,
         );
       }
     }
@@ -237,12 +223,7 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
           // Credentials not found
           if (context.mounted) {
             ref.read(ngoLoginProvider.notifier).setLoading(false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Invalid email or password'),
-                backgroundColor: AppColors.error,
-              ),
-            );
+            pageMessage('Invalid email or password', context, AppColors.error);
           }
         } else {
           // Credentials verified — check login approval
@@ -253,13 +234,10 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
           ref.read(ngoLoginProvider.notifier).setLoading(false);
         }
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'An unexpected error occurred, please try again later',
-              ),
-              backgroundColor: AppColors.error,
-            ),
+          pageMessage(
+            'An unexpected error occurred, please try again later',
+            context,
+            AppColors.error,
           );
         }
       }
@@ -355,11 +333,7 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
               cursor: SystemMouseCursors.click,
               child: GestureDetector(
                 onTap: () {
-                  if (mounted) {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => const NgoAuth()),
-                    );
-                  }
+                  pageNavigation(const NgoAuth(), context);
                 },
                 child: const Icon(
                   Icons.arrow_back,

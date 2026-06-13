@@ -4,6 +4,7 @@ import 'package:life_line_ngo/providers/ngo_select_screen_provider.dart';
 import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/pages/ngo_registration.dart';
 import 'package:life_line_ngo/pages/ngo_auth.dart';
+import 'package:life_line_ngo/widgets/global/page_navigation.dart';
 
 class NgoSelectScreen extends StatefulWidget {
   const NgoSelectScreen({super.key});
@@ -82,270 +83,256 @@ class _NgoSelectScreenState extends State<NgoSelectScreen> {
               ),
             ),
             // Content
-            SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isMobile = constraints.maxWidth < 600;
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 600;
 
-                  return Center(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: isMobile ? double.infinity : 700,
-                        ),
-                        child: Column(
-                          children: [
-                            // Main Card
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                              padding: EdgeInsets.all(
-                                isMobile ? AppSpacing.xl : AppSpacing.xxxxl,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  MouseRegion(
-                                    cursor: SystemMouseCursors.click,
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        if (mounted) {
-                                          Navigator.of(context).pushReplacement(
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  const NgoAuth(),
-                                            ),
-                                          );
-                                        }
-                                      },
-                                      child: const Icon(
-                                        Icons.arrow_back,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(height: AppSpacing.sm),
-                                  Text(
-                                    'Select Your NGO',
-                                    style: AppText.formTitle.copyWith(
-                                      fontSize: isMobile ? 24 : 32,
-                                    ),
-                                  ),
-                                  const SizedBox(height: AppSpacing.sm),
-                                  Text(
-                                    'Choose the NGO you officially represent.',
-                                    style: AppText.formDescription.copyWith(
-                                      fontSize: isMobile ? 14 : 16,
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    height: isMobile
-                                        ? AppSpacing.xl
-                                        : AppSpacing.xxl,
-                                  ),
-
-                                  // NGO List
-                                  Consumer(
-                                    builder: (context, ref, child) {
-                                      return ListView.builder(
-                                        shrinkWrap: true,
-                                        itemCount: ngoList.length,
-                                        itemBuilder: (context, index) {
-                                          if (!mounted) {
-                                            return const SizedBox.shrink();
-                                          }
-                                          final selectedIndex = ref.watch(
-                                            selectedIndexProvider,
-                                          );
-                                          final ngo = ngoList[index];
-                                          final isSelected =
-                                              selectedIndex == index;
-
-                                          return Padding(
-                                            padding: const EdgeInsets.only(
-                                              bottom: AppSpacing.md,
-                                            ),
-                                            child: InkWell(
-                                              onTap: () {
-                                                if (mounted) {
-                                                  ref
-                                                          .read(
-                                                            selectedIndexProvider
-                                                                .notifier,
-                                                          )
-                                                          .state =
-                                                      index;
-                                                }
-                                              },
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  color: isSelected
-                                                      ? AppColors.primary
-                                                            .withOpacity(0.1)
-                                                      : AppColors.surfaceLight,
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                  border: Border.all(
-                                                    color: isSelected
-                                                        ? AppColors.primary
-                                                        : AppColors.borderColor,
-                                                    width: isSelected ? 2 : 1,
-                                                  ),
-                                                ),
-                                                padding: EdgeInsets.all(
-                                                  isMobile
-                                                      ? AppSpacing.md
-                                                      : AppSpacing.lg,
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    Container(
-                                                      width: isMobile ? 40 : 48,
-                                                      height: isMobile
-                                                          ? 40
-                                                          : 48,
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.white,
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                              8,
-                                                            ),
-                                                        border: Border.all(
-                                                          color: AppColors
-                                                              .borderLight,
-                                                        ),
-                                                      ),
-                                                      padding:
-                                                          const EdgeInsets.all(
-                                                            6,
-                                                          ),
-                                                      child: Image.asset(
-                                                        ngo['image']!,
-                                                        fit: BoxFit.contain,
-                                                      ),
-                                                    ),
-                                                    SizedBox(
-                                                      width: isMobile
-                                                          ? AppSpacing.md
-                                                          : AppSpacing.lg,
-                                                    ),
-                                                    Expanded(
-                                                      child: Text(
-                                                        ngo['name']!,
-                                                        style: AppText
-                                                            .fieldLabel
-                                                            .copyWith(
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                              fontSize: isMobile
-                                                                  ? 14
-                                                                  : 16,
-                                                            ),
-                                                      ),
-                                                    ),
-                                                    Consumer(
-                                                      builder: (context, ref, child) {
-                                                        if (!mounted) {
-                                                          return const SizedBox.shrink();
-                                                        }
-                                                        final selectedIndex =
-                                                            ref.watch(
-                                                              selectedIndexProvider,
-                                                            );
-                                                        return Radio<int>(
-                                                          value: index,
-                                                          groupValue:
-                                                              selectedIndex,
-                                                          onChanged: (value) {
-                                                            if (mounted) {
-                                                              ref
-                                                                      .read(
-                                                                        selectedIndexProvider
-                                                                            .notifier,
-                                                                      )
-                                                                      .state =
-                                                                  value!;
-                                                            }
-                                                          },
-                                                          activeColor:
-                                                              AppColors.primary,
-                                                        );
-                                                      },
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                      );
+                return Center(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.all(isMobile ? 16.0 : 24.0),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: isMobile ? double.infinity : 700,
+                      ),
+                      child: Column(
+                        children: [
+                          // Main Card
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            padding: EdgeInsets.all(
+                              isMobile ? AppSpacing.xl : AppSpacing.xxxxl,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                MouseRegion(
+                                  cursor: SystemMouseCursors.click,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      pageNavigation(const NgoAuth(), context);
                                     },
+                                    child: const Icon(
+                                      Icons.arrow_back,
+                                      color: AppColors.textSecondary,
+                                    ),
                                   ),
-
-                                  SizedBox(
-                                    height: isMobile
-                                        ? AppSpacing.xl
-                                        : AppSpacing.xxl,
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                Text(
+                                  'Select Your NGO',
+                                  style: AppText.formTitle.copyWith(
+                                    fontSize: isMobile ? 24 : 32,
                                   ),
+                                ),
+                                const SizedBox(height: AppSpacing.sm),
+                                Text(
+                                  'Choose the NGO you officially represent.',
+                                  style: AppText.formDescription.copyWith(
+                                    fontSize: isMobile ? 14 : 16,
+                                  ),
+                                ),
+                                SizedBox(
+                                  height: isMobile
+                                      ? AppSpacing.xl
+                                      : AppSpacing.xxl,
+                                ),
 
-                                  // Continue Button
-                                  SizedBox(
-                                    width: double.infinity,
-                                    height: isMobile
-                                        ? 48
-                                        : AppSizes.submitButtonHeight,
-                                    child: Consumer(
-                                      builder: (context, ref, child) {
+                                // NGO List
+                                Consumer(
+                                  builder: (context, ref, child) {
+                                    return ListView.builder(
+                                      shrinkWrap: true,
+                                      itemCount: ngoList.length,
+                                      itemBuilder: (context, index) {
                                         if (!mounted) {
                                           return const SizedBox.shrink();
                                         }
                                         final selectedIndex = ref.watch(
                                           selectedIndexProvider,
                                         );
-                                        return ElevatedButton(
-                                          onPressed: () {
-                                            if (mounted) {
-                                              Navigator.of(
-                                                context,
-                                              ).pushReplacement(
-                                                MaterialPageRoute(
-                                                  builder: (context) => NgoRegistration(
-                                                    ngoName:
-                                                        ngoList[selectedIndex]['name'] ??
-                                                        '',
-                                                    ngoLogo:
-                                                        ngoList[selectedIndex]['image'] ??
-                                                        '',
-                                                  ),
+                                        final ngo = ngoList[index];
+                                        final isSelected =
+                                            selectedIndex == index;
+
+                                        return Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: AppSpacing.md,
+                                          ),
+                                          child: InkWell(
+                                            onTap: () {
+                                              if (mounted) {
+                                                ref
+                                                        .read(
+                                                          selectedIndexProvider
+                                                              .notifier,
+                                                        )
+                                                        .state =
+                                                    index;
+                                              }
+                                            },
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: isSelected
+                                                    ? AppColors.primary
+                                                          .withOpacity(0.1)
+                                                    : AppColors.surfaceLight,
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                                border: Border.all(
+                                                  color: isSelected
+                                                      ? AppColors.primary
+                                                      : AppColors.borderColor,
+                                                  width: isSelected ? 2 : 1,
                                                 ),
-                                              );
-                                            }
-                                          },
-                                          style: AppButtons.submit,
-                                          child: const Text(
-                                            'Continue',
-                                            style: AppText.submitButton,
+                                              ),
+                                              padding: EdgeInsets.all(
+                                                isMobile
+                                                    ? AppSpacing.md
+                                                    : AppSpacing.lg,
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  Container(
+                                                    width: isMobile ? 40 : 48,
+                                                    height: isMobile ? 40 : 48,
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.white,
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                      border: Border.all(
+                                                        color: AppColors
+                                                            .borderLight,
+                                                      ),
+                                                    ),
+                                                    padding:
+                                                        const EdgeInsets.all(6),
+                                                    child: Image.asset(
+                                                      ngo['image']!,
+                                                      fit: BoxFit.contain,
+                                                    ),
+                                                  ),
+                                                  SizedBox(
+                                                    width: isMobile
+                                                        ? AppSpacing.md
+                                                        : AppSpacing.lg,
+                                                  ),
+                                                  Expanded(
+                                                    child: Text(
+                                                      ngo['name']!,
+                                                      style: AppText.fieldLabel
+                                                          .copyWith(
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                            fontSize: isMobile
+                                                                ? 14
+                                                                : 16,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  Consumer(
+                                                    builder: (context, ref, child) {
+                                                      if (!mounted) {
+                                                        return const SizedBox.shrink();
+                                                      }
+                                                      final selectedIndex = ref
+                                                          .watch(
+                                                            selectedIndexProvider,
+                                                          );
+                                                      return Radio<int>(
+                                                        value: index,
+                                                        groupValue:
+                                                            selectedIndex,
+                                                        onChanged: (value) {
+                                                          if (mounted) {
+                                                            ref
+                                                                    .read(
+                                                                      selectedIndexProvider
+                                                                          .notifier,
+                                                                    )
+                                                                    .state =
+                                                                value!;
+                                                          }
+                                                        },
+                                                        activeColor:
+                                                            AppColors.primary,
+                                                      );
+                                                    },
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
                                           ),
                                         );
                                       },
-                                    ),
+                                    );
+                                  },
+                                ),
+
+                                SizedBox(
+                                  height: isMobile
+                                      ? AppSpacing.xl
+                                      : AppSpacing.xxl,
+                                ),
+
+                                // Continue Button
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: isMobile
+                                      ? 48
+                                      : AppSizes.submitButtonHeight,
+                                  child: Consumer(
+                                    builder: (context, ref, child) {
+                                      if (!mounted) {
+                                        return const SizedBox.shrink();
+                                      }
+                                      final selectedIndex = ref.watch(
+                                        selectedIndexProvider,
+                                      );
+                                      return ElevatedButton(
+                                        onPressed: () {
+                                          if (mounted) {
+                                            Navigator.of(
+                                              context,
+                                            ).pushReplacement(
+                                              MaterialPageRoute(
+                                                builder: (context) => NgoRegistration(
+                                                  ngoName:
+                                                      ngoList[selectedIndex]['name'] ??
+                                                      '',
+                                                  ngoLogo:
+                                                      ngoList[selectedIndex]['image'] ??
+                                                      '',
+                                                ),
+                                              ),
+                                            );
+                                          }
+                                        },
+                                        style: AppButtons.submit,
+                                        child: const Text(
+                                          'Continue',
+                                          style: AppText.submitButton,
+                                        ),
+                                      );
+                                    },
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
           ],
         ),

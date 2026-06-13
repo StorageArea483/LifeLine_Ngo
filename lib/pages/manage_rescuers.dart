@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:life_line_ngo/pages/ngo_dashboard.dart';
 import 'package:life_line_ngo/providers/manage_rescuers_provider.dart';
 import 'package:life_line_ngo/providers/ngo_dasboard_provider.dart';
 import 'package:life_line_ngo/styles/styles.dart';
+import 'package:life_line_ngo/widgets/global/page_message.dart';
+import 'package:life_line_ngo/widgets/global/page_navigation.dart';
 import 'package:life_line_ngo/widgets/nav_bar.dart';
 
 class ManageRescuers extends ConsumerStatefulWidget {
@@ -16,39 +19,73 @@ class ManageRescuers extends ConsumerStatefulWidget {
 
 class _ManageRescuersState extends ConsumerState<ManageRescuers> {
   final FirebaseFirestore _ngoFirestore = FirebaseFirestore.instance;
+  FirebaseFirestore? _rescuerFirestore;
+
+  // life-line-rescuer database credentials
+  static const FirebaseOptions _rescuerFirebaseOptions = FirebaseOptions(
+    apiKey: 'AIzaSyDs-CoAc_fqrB-3BMl4N7pYSavyNV72zUQ',
+    appId: '1:494066243537:android:ffdb36137d6d3cb1a4b2f0',
+    messagingSenderId: '494066243537',
+    projectId: 'life-line-rescuer-b1f1c',
+    storageBucket: 'life-line-rescuer-b1f1c.firebasestorage.app',
+  );
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchRescuerRequests();
+      _initRescuerFirebase();
     });
   }
 
-  Future<void> _fetchRescuerRequests() async {
+  Future<void> _initRescuerFirebase() async {
     if (mounted) {
       ref.read(manageRescuersProvider.notifier).setLoading(true);
     }
+    try {
+      final secondaryApp = await Firebase.initializeApp(
+        name: 'life-line-rescuer',
+        options: _rescuerFirebaseOptions,
+      );
+      _rescuerFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
+      await _fetchRescuerRequests();
+      if (mounted) {
+        ref.read(manageRescuersProvider.notifier).setLoading(false);
+      }
+    } catch (e) {
+      // If already initialized, get the existing instance
+      try {
+        final existingApp = Firebase.app('life-line-rescuer');
+        _rescuerFirestore = FirebaseFirestore.instanceFor(app: existingApp);
+        await _fetchRescuerRequests();
+        if (mounted) {
+          ref.read(manageRescuersProvider.notifier).setLoading(false);
+        }
+      } catch (e) {
+        if (mounted) {
+          ref.read(manageRescuersProvider.notifier).setLoading(false);
+          pageMessage(
+            'Failed to initialize rescuer database, Please try again later',
+            context,
+            AppColors.error,
+          );
+          pageNavigation(const NgoDashboard(), context);
+        }
+      }
+    }
+  }
+
+  Future<void> _fetchRescuerRequests() async {
     try {
       if (!mounted) return;
       final ngoDocId = ref.read(ngoDasboardProvider).ngoDocId;
 
       if (ngoDocId == null) {
         if (mounted) {
-          ref.read(manageRescuersProvider.notifier).setLoading(false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Unable to fetch rescuer requests, Please try again.',
-                textAlign: TextAlign.center,
-                style: AppText.small.copyWith(fontWeight: FontWeight.w500),
-              ),
-              backgroundColor: AppColors.error,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
+          pageMessage(
+            'Unable to fetch rescuer requests, Please try again.',
+            context,
+            AppColors.error,
           );
         }
         return;
@@ -74,6 +111,8 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
             'firstName': data['firstName'] ?? 'N/A',
             'lastName': data['lastName'] ?? 'N/A',
             'phone': data['phone'] ?? 'N/A',
+            'ngoName': data['ngoName'] ?? 'N/A',
+            'branchName': data['branchName'] ?? 'N/A',
             'status': data['status'] ?? 'pending',
           });
         }
@@ -81,25 +120,35 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
 
       if (mounted) {
         ref.read(manageRescuersProvider.notifier).setRescuerRequests(requests);
-        ref.read(manageRescuersProvider.notifier).setLoading(false);
       }
     } catch (e) {
       if (mounted) {
-        ref.read(manageRescuersProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Unable to fetch rescuer requests, Please try again.',
-              textAlign: TextAlign.center,
-              style: AppText.small.copyWith(fontWeight: FontWeight.w500),
-            ),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+        pageMessage(
+          'Unable to fetch rescuer requests, Please try again.',
+          context,
+          AppColors.error,
         );
+      }
+    }
+  }
+
+  Future<void> refreshRequests() async {
+    if (mounted) {
+      ref.read(manageRescuersProvider.notifier).setLoading(true);
+    }
+    try {
+      await _fetchRescuerRequests();
+    } catch (e) {
+      if (mounted) {
+        pageMessage(
+          'Error refreshing rescuer requests',
+          context,
+          AppColors.error,
+        );
+      }
+    } finally {
+      if (mounted) {
+        ref.read(manageRescuersProvider.notifier).setLoading(false);
       }
     }
   }
@@ -110,8 +159,19 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
       final ngoDocId = ref.read(ngoDasboardProvider).ngoDocId;
       if (!mounted) return;
       ref.read(manageRescuersProvider.notifier).setLoading(true);
-      if (ngoDocId == null) return;
+      if (ngoDocId == null || _rescuerFirestore == null) {
+        if (mounted) {
+          ref.read(manageRescuersProvider.notifier).setLoading(false);
+          pageMessage(
+            'Unable to approve rescuer request, Please try again.',
+            context,
+            AppColors.error,
+          );
+        }
+        return;
+      }
 
+      // Update status in ngo-info-database
       await _ngoFirestore
           .collection('ngo-info-database')
           .doc(ngoDocId)
@@ -119,41 +179,27 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
           .doc(requestId)
           .update({'status': 'approved'});
 
+      // Update status in life-line-rescuer database
+      await _rescuerFirestore!.collection('users').doc(requestId).update({
+        'status': 'approved',
+      });
+
       if (mounted) {
         ref.read(manageRescuersProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Rescuer request approved successfully',
-              textAlign: TextAlign.center,
-              style: AppText.small.copyWith(fontWeight: FontWeight.w500),
-            ),
-            backgroundColor: AppColors.success,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+        pageMessage(
+          'Rescuer request approved successfully',
+          context,
+          AppColors.success,
         );
-        // Refresh the list
         _fetchRescuerRequests();
       }
     } catch (e) {
       if (mounted) {
         ref.read(manageRescuersProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to approve request, Please try again.',
-              textAlign: TextAlign.center,
-              style: AppText.small.copyWith(fontWeight: FontWeight.w500),
-            ),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+        pageMessage(
+          'Failed to approve request, Please try again.',
+          context,
+          AppColors.error,
         );
       }
     }
@@ -165,8 +211,14 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
       final ngoDocId = ref.read(ngoDasboardProvider).ngoDocId;
       if (!mounted) return;
       ref.read(manageRescuersProvider.notifier).setLoading(true);
-      if (ngoDocId == null) return;
+      if (ngoDocId == null || _rescuerFirestore == null) {
+        if (mounted) {
+          ref.read(manageRescuersProvider.notifier).setLoading(false);
+        }
+        return;
+      }
 
+      // Update status in ngo-info-database
       await _ngoFirestore
           .collection('ngo-info-database')
           .doc(ngoDocId)
@@ -174,41 +226,23 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
           .doc(requestId)
           .update({'status': 'rejected'});
 
+      // Update status in life-line-rescuer database
+      await _rescuerFirestore!.collection('users').doc(requestId).update({
+        'status': 'rejected',
+      });
+
       if (mounted) {
         ref.read(manageRescuersProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Rescuer request rejected',
-              textAlign: TextAlign.center,
-              style: AppText.small.copyWith(fontWeight: FontWeight.w500),
-            ),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-        );
-        // Refresh the list
+        pageMessage('Rescuer request rejected', context, AppColors.error);
         _fetchRescuerRequests();
       }
     } catch (e) {
       if (mounted) {
         ref.read(manageRescuersProvider.notifier).setLoading(false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Failed to reject request, Please try again.',
-              textAlign: TextAlign.center,
-              style: AppText.small.copyWith(fontWeight: FontWeight.w500),
-            ),
-            backgroundColor: AppColors.error,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+        pageMessage(
+          'Failed to reject request, Please try again.',
+          context,
+          AppColors.error,
         );
       }
     }
@@ -218,201 +252,467 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.softBackground,
+      drawer: buildDrawer(context),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = constraints.maxWidth < 600;
+        child: Stack(
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 600;
+                final isTablet =
+                    constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
 
-            return Column(
-              children: [
-                // Navigation Bar
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceLight,
-                    border: Border.all(color: AppColors.borderColor, width: 1),
-                  ),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? AppSpacing.lg : AppSpacing.xxl,
-                    vertical: isMobile ? AppSpacing.md : AppSpacing.lg,
-                  ),
-                  child: const NavBar(),
-                ),
-
-                // Page Header
-                Padding(
-                  padding: EdgeInsets.all(
-                    isMobile ? AppSpacing.lg : AppSpacing.xxl,
-                  ),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: () {
-                          Navigator.of(context).pushReplacement(
-                            MaterialPageRoute(
-                              builder: (context) => const NgoDashboard(),
-                            ),
-                          );
-                        },
+                return Column(
+                  children: [
+                    // Navigation Bar
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceLight,
+                        border: Border.all(
+                          color: AppColors.borderColor,
+                          width: 1,
+                        ),
                       ),
-                      const SizedBox(width: AppSpacing.md),
-                      Expanded(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                        vertical: isMobile ? AppSpacing.md : AppSpacing.lg,
+                      ),
+                      child: const NavBar(),
+                    ),
+
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.all(
+                          isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildHeader(isMobile),
+                            SizedBox(
+                              height:
+                                  isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                            ),
+                            Consumer(
+                              builder: (context, ref, child) {
+                                return _buildContent(isMobile, isTablet, ref);
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+
+            // Loading overlay — same pattern as show_victim_info.dart
+            Consumer(
+              builder: (context, ref, child) {
+                if (!mounted) return const SizedBox.shrink();
+                final isLoading = ref.watch(
+                  manageRescuersProvider.select((v) => v.isLoading),
+                );
+                if (!isLoading) return const SizedBox.shrink();
+                return IgnorePointer(
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryMaroon,
+                          strokeWidth: 4,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(bool isMobile) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.primaryMaroon.withValues(alpha: 0.05),
+            AppColors.accentRose.withValues(alpha: 0.02),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primaryMaroon.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Back button
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primaryMaroon,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: () {
+                  if (mounted) {
+                    pageNavigation(const NgoDashboard(), context);
+                  }
+                },
+                child: const Icon(
+                  Icons.arrow_back,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Manage Rescuers',
+                  style: TextStyle(
+                    fontSize: isMobile ? 24 : 28,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.darkCharcoal,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Review and approve pending rescuer requests',
+                  style: TextStyle(
+                    fontSize: isMobile ? 14 : 16,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent(bool isMobile, bool isTablet, WidgetRef ref) {
+    if (!mounted) return const SizedBox.shrink();
+    final rescuerRequests = ref.watch(
+      manageRescuersProvider.select((v) => v.rescuerRequests),
+    );
+
+    if (rescuerRequests.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xxxxl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.people_outline,
+                size: 64,
+                color: AppColors.textMuted,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'No pending rescuer requests',
+                style: AppText.subtitle.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return isMobile || isTablet
+        ? _buildMobileList(ref)
+        : _buildWebTable(ref);
+  }
+
+  Widget _buildWebTable(WidgetRef ref) {
+    if (!mounted) return const SizedBox.shrink();
+    final rescuerRequests = ref.watch(
+      manageRescuersProvider.select((v) => v.rescuerRequests),
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.darkCharcoal.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Table(
+            columnWidths: const {
+              0: FlexColumnWidth(2.5),
+              1: FlexColumnWidth(2),
+              2: FlexColumnWidth(2),
+              3: FlexColumnWidth(2),
+              4: FlexColumnWidth(1.5),
+            },
+            children: [
+              // Header Row
+              TableRow(
+                decoration: BoxDecoration(
+                  color: AppColors.primaryMaroon.withValues(alpha: 0.03),
+                  border: const Border(
+                    bottom: BorderSide(color: AppColors.borderLight, width: 1),
+                  ),
+                ),
+                children: [
+                  _tableHeaderCell('Name'),
+                  _tableHeaderCell('Phone'),
+                  _tableHeaderCell('NGO Name'),
+                  _tableHeaderCell('Branch'),
+                  _tableHeaderCell('Actions', centered: true),
+                ],
+              ),
+              // Data Rows
+              ...rescuerRequests.asMap().entries.map((entry) {
+                final request = entry.value;
+                final requestId = request['id'];
+                final firstName = request['firstName'];
+                final lastName = request['lastName'];
+                final phone = request['phone'];
+                final ngoName = request['ngoName'];
+                final branchName = request['branchName'];
+
+                return TableRow(
+                  decoration: BoxDecoration(
+                    color: AppColors.softBackground.withValues(alpha: 0.3),
+                    border: Border.all(
+                      color: AppColors.borderLight,
+                      width: 1,
+                    ),
+                  ),
+                  children: [
+                    // Name + status badge
+                    TableCell(
+                      verticalAlignment: TableCellVerticalAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xl,
+                          vertical: AppSpacing.lg,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Manage Rescuers',
-                              style: AppText.appHeader.copyWith(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w700,
+                              '$firstName $lastName',
+                              style: AppText.fieldLabel.copyWith(
+                                fontSize: 13,
+                                color: AppColors.darkCharcoal,
+                                fontWeight: FontWeight.w600,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              'Review and approve pending rescuer requests',
-                              style: AppText.formDescription.copyWith(
-                                color: AppColors.textSecondary,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'Pending',
+                                style: AppText.small.copyWith(
+                                  color: Colors.orange,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 11,
+                                ),
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-
-                // Rescuer Requests List
-                Expanded(
-                  child: Consumer(
-                    builder: (context, ref, child) {
-                      final isLoading = ref.watch(
-                        manageRescuersProvider.select((v) => v.isLoading),
-                      );
-                      final rescuerRequests = ref.watch(
-                        manageRescuersProvider.select((v) => v.rescuerRequests),
-                      );
-
-                      return Stack(
-                        children: [
-                          // Main Content
-                          rescuerRequests.isEmpty && !isLoading
-                              ? Center(
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(
-                                        Icons.people_outline,
-                                        size: 64,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                      const SizedBox(height: AppSpacing.lg),
-                                      Text(
-                                        'No pending rescuer requests',
-                                        style: AppText.fieldLabel.copyWith(
-                                          color: AppColors.textSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : ListView.builder(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: isMobile
-                                        ? AppSpacing.lg
-                                        : AppSpacing.xxl,
-                                  ),
-                                  itemCount: rescuerRequests.length,
-                                  itemBuilder: (context, index) {
-                                    final request = rescuerRequests[index];
-                                    return _RescuerRequestCard(
-                                      firstName: request['firstName'],
-                                      lastName: request['lastName'],
-                                      phone: request['phone'],
-                                      onApprove: () =>
-                                          _handleApprove(request['id']),
-                                      onReject: () =>
-                                          _handleReject(request['id']),
-                                    );
-                                  },
+                    ),
+                    // Phone
+                    TableCell(
+                      verticalAlignment: TableCellVerticalAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xl,
+                          vertical: AppSpacing.lg,
+                        ),
+                        child: Text(
+                          phone,
+                          style: AppText.fieldLabel.copyWith(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    // NGO Name
+                    TableCell(
+                      verticalAlignment: TableCellVerticalAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xl,
+                          vertical: AppSpacing.lg,
+                        ),
+                        child: Text(
+                          ngoName,
+                          style: AppText.fieldLabel.copyWith(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    // Branch
+                    TableCell(
+                      verticalAlignment: TableCellVerticalAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xl,
+                          vertical: AppSpacing.lg,
+                        ),
+                        child: Text(
+                          branchName,
+                          style: AppText.fieldLabel.copyWith(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    // Actions
+                    TableCell(
+                      verticalAlignment: TableCellVerticalAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.lg,
+                        ),
+                        child: Center(
+                          child: Wrap(
+                            spacing: AppSpacing.sm,
+                            runSpacing: AppSpacing.sm,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                icon: const Icon(
+                                  Icons.check_circle,
+                                  color: AppColors.success,
+                                  size: 22,
                                 ),
-
-                          // Loading Overlay
-                          if (isLoading)
-                            const IgnorePointer(
-                              child: Center(
-                                child: SizedBox(
-                                  width: 60,
-                                  height: 60,
-                                  child: CircularProgressIndicator(
-                                    color: AppColors.primaryMaroon,
-                                    strokeWidth: 4,
-                                  ),
-                                ),
+                                tooltip: 'Approve',
+                                onPressed: () => _handleApprove(requestId),
                               ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+                              IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                                icon: const Icon(
+                                  Icons.cancel,
+                                  color: AppColors.accentRose,
+                                  size: 22,
+                                ),
+                                tooltip: 'Reject',
+                                onPressed: () => _handleReject(requestId),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ],
+          ),
+        ],
       ),
     );
   }
-}
 
-class _RescuerRequestCard extends StatelessWidget {
-  final String firstName;
-  final String lastName;
-  final String phone;
-  final VoidCallback onApprove;
-  final VoidCallback onReject;
+  Widget _buildMobileList(WidgetRef ref) {
+    if (!mounted) return const SizedBox.shrink();
+    final rescuerRequests = ref.watch(
+      manageRescuersProvider.select((v) => v.rescuerRequests),
+    );
+    return Column(
+      children:
+          rescuerRequests
+              .map((request) => _buildMobileCard(request))
+              .toList(),
+    );
+  }
 
-  const _RescuerRequestCard({
-    required this.firstName,
-    required this.lastName,
-    required this.phone,
-    required this.onApprove,
-    required this.onReject,
-  });
+  Widget _buildMobileCard(Map<String, dynamic> request) {
+    final requestId = request['id'];
+    final firstName = request['firstName'];
+    final lastName = request['lastName'];
+    final phone = request['phone'];
+    final ngoName = request['ngoName'];
+    final branchName = request['branchName'];
 
-  @override
-  Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.lg),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 8,
+            color: AppColors.darkCharcoal.withValues(alpha: 0.06),
+            blurRadius: 12,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Name + Buttons Row
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Section
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryMaroon.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
+                    color: AppColors.primaryMaroon.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.person,
                     color: AppColors.primaryMaroon,
-                    size: 28,
+                    size: 24,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
@@ -422,20 +722,21 @@ class _RescuerRequestCard extends StatelessWidget {
                     children: [
                       Text(
                         '$firstName $lastName',
-                        style: AppText.fieldLabel.copyWith(
-                          fontSize: 18,
+                        style: const TextStyle(
+                          fontSize: 17,
                           fontWeight: FontWeight.w700,
                           color: AppColors.darkCharcoal,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
-                          vertical: 4,
+                          vertical: 3,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.1),
+                          color: Colors.orange.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
@@ -450,104 +751,153 @@ class _RescuerRequestCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: AppSpacing.md),
-                // Compact action buttons
-                Wrap(
-                  spacing: AppSpacing.sm,
-                  runSpacing: AppSpacing.sm,
-                  alignment: WrapAlignment.end,
+              ],
+            ),
+          ),
+
+          // Content Section
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.md,
+              0,
+              AppSpacing.md,
+              AppSpacing.md,
+            ),
+            child: Column(
+              children: [
+                _MobileInfoRow(label: 'Phone', value: phone),
+                const SizedBox(height: AppSpacing.md),
+                _MobileInfoRow(label: 'NGO', value: ngoName),
+                const SizedBox(height: AppSpacing.md),
+                _MobileInfoRow(label: 'Branch', value: branchName),
+                const SizedBox(height: AppSpacing.lg),
+
+                // Action buttons
+                Row(
                   children: [
-                    ElevatedButton.icon(
-                      onPressed: onApprove,
-                      icon: const Icon(Icons.check_circle, size: 16),
-                      label: const Text('Approve'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.success,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        elevation: 0,
+                    Expanded(
+                      child: _MobileActionButton(
+                        label: 'Approve',
+                        icon: Icons.check_circle,
+                        color: AppColors.success,
+                        onPressed: () => _handleApprove(requestId),
                       ),
                     ),
-                    ElevatedButton.icon(
-                      onPressed: onReject,
-                      icon: const Icon(Icons.cancel, size: 16),
-                      label: const Text('Reject'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.error,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        elevation: 0,
+                    const SizedBox(width: AppSpacing.xl),
+                    Expanded(
+                      child: _MobileActionButton(
+                        label: 'Reject',
+                        icon: Icons.cancel,
+                        color: AppColors.error,
+                        onPressed: () => _handleReject(requestId),
                       ),
                     ),
                   ],
                 ),
               ],
             ),
-            const SizedBox(height: AppSpacing.lg),
+          ),
+        ],
+      ),
+    );
+  }
 
-            // Contact Information
-            _InfoRow(icon: Icons.phone, label: 'Phone Number', value: phone),
-          ],
+  Widget _tableHeaderCell(String text, {bool centered = false}) {
+    final cell = Text(
+      text,
+      style: AppText.formDescription.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textSecondary,
+        letterSpacing: 0.5,
+      ),
+    );
+    return TableCell(
+      verticalAlignment: TableCellVerticalAlignment.middle,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.xl,
+          vertical: AppSpacing.lg,
         ),
+        child: centered ? Center(child: cell) : cell,
       ),
     );
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
+// ─── Reusable mobile widgets ──────────────────────────────────────────────────
+
+class _MobileInfoRow extends StatelessWidget {
   final String label;
   final String value;
 
-  const _InfoRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
+  const _MobileInfoRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: AppColors.textSecondary),
-        const SizedBox(width: AppSpacing.sm),
-        Text(
-          '$label: ',
-          style: AppText.small.copyWith(
-            color: AppColors.textSecondary,
-            fontWeight: FontWeight.w600,
+        SizedBox(
+          width: 60,
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontSize: 14,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
         Expanded(
           child: Text(
             value,
-            style: AppText.small.copyWith(
-              color: AppColors.darkCharcoal,
+            maxLines: 3,
+            style: const TextStyle(
+              fontSize: 14,
               fontWeight: FontWeight.w500,
+              color: AppColors.darkCharcoal,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _MobileActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onPressed;
+
+  const _MobileActionButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color.withValues(alpha: 0.1),
+        foregroundColor: color,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: color.withValues(alpha: 0.3)),
+        ),
+      ),
     );
   }
 }

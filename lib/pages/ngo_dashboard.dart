@@ -7,9 +7,12 @@ import 'package:just_audio/just_audio.dart';
 import 'package:life_line_ngo/pages/critical_alerts.dart';
 import 'package:life_line_ngo/pages/manage_rescuers.dart';
 import 'package:life_line_ngo/pages/ngo_login.dart';
+import 'package:life_line_ngo/pages/show_rescuer_info.dart';
 import 'package:life_line_ngo/providers/ngo_dasboard_provider.dart';
 import 'package:life_line_ngo/pages/show_victim_info.dart';
 import 'package:life_line_ngo/styles/styles.dart';
+import 'package:life_line_ngo/widgets/global/page_message.dart';
+import 'package:life_line_ngo/widgets/global/page_navigation.dart';
 import 'package:life_line_ngo/widgets/nav_bar.dart';
 
 class NgoDashboard extends ConsumerStatefulWidget {
@@ -39,12 +42,43 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
   void initState() {
     super.initState();
     _audioPlayer = AudioPlayer();
-    _initializeAudio(); // initializes audio on loop
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initVictimFirebase();
-      _listenToRequestCount(); // Fetch requests from ngo-firestore
-      _fetchRescuerCount(); // Fetch rescuer requests from ngo-info-database
+      _initializeDashboard();
     });
+  }
+
+  Future<void> _initializeDashboard() async {
+    if (!mounted) return;
+
+    // Set loading to true at the very beginning of all initialization tasks
+    ref.read(ngoDasboardProvider.notifier).setLoading(true);
+
+    try {
+      // Run all async initialization tasks concurrently
+      await Future.wait([
+        _initializeAudio(),
+        _initVictimFirebase(),
+        _fetchRescuerCount(),
+      ]);
+
+      // Set up the listener synchronously after other setups
+      if (mounted) {
+        _listenToRequestCount();
+      }
+    } catch (e) {
+      if (mounted) {
+        pageMessage(
+          'An unexpected error occurred, please retry',
+          context,
+          AppColors.error,
+        );
+        pageNavigation(const NgoLogin(), context);
+      }
+    } finally {
+      if (mounted) {
+        ref.read(ngoDasboardProvider.notifier).setLoading(false);
+      }
+    }
   }
 
   Future<void> _initializeAudio() async {
@@ -53,15 +87,12 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
       await _audioPlayer.setLoopMode(LoopMode.all);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('An unexpected error occurred, please retry'),
-            backgroundColor: AppColors.error,
-          ),
+        pageMessage(
+          'An unexpected error occurred, please retry',
+          context,
+          AppColors.error,
         );
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const NgoLogin()),
-        );
+        pageNavigation(const NgoLogin(), context);
       }
     }
   }
@@ -74,9 +105,6 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
   }
 
   Future<void> _initVictimFirebase() async {
-    if (mounted) {
-      ref.read(ngoDasboardProvider.notifier).setLoading(true);
-    }
     try {
       final secondaryApp = await Firebase.initializeApp(
         name: 'life-line-victim',
@@ -84,30 +112,20 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
       );
       _victimFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
       await _fetchVictimCount();
-      if (mounted) {
-        ref.read(ngoDasboardProvider.notifier).setLoading(false);
-      }
     } catch (e) {
       // If already initialized, get the existing instance
       try {
         final existingApp = Firebase.app('life-line-victim');
         _victimFirestore = FirebaseFirestore.instanceFor(app: existingApp);
         await _fetchVictimCount();
-        if (mounted) {
-          ref.read(ngoDasboardProvider.notifier).setLoading(false);
-        }
       } catch (e) {
         if (mounted) {
-          ref.read(ngoDasboardProvider.notifier).setLoading(false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('An unexpected error occurred, Please re-login'),
-              backgroundColor: AppColors.error,
-            ),
+          pageMessage(
+            'An unexpected error occurred, Please re-login',
+            context,
+            AppColors.error,
           );
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const NgoLogin()),
-          );
+          pageNavigation(const NgoLogin(), context);
         }
       }
     }
@@ -154,15 +172,8 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
           });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Audio, failed to start'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const NgoLogin()),
-        );
+        pageMessage('Audio, failed to start', context, AppColors.error);
+        pageNavigation(const NgoLogin(), context);
       }
     }
   }
@@ -177,6 +188,7 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
           .collection('ngo-info-database')
           .doc(ngoDocId)
           .collection('rescuer-requests')
+          .where('status', isEqualTo: 'pending')
           .get();
 
       if (!mounted) return;
@@ -187,11 +199,10 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to fetch rescuer requests'),
-            backgroundColor: AppColors.error,
-          ),
+        pageMessage(
+          'Failed to fetch rescuer requests',
+          context,
+          AppColors.error,
         );
       }
     }
@@ -216,12 +227,7 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to stop audio'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        pageMessage('Failed to stop audio', context, AppColors.error);
       }
     }
   }
@@ -232,44 +238,75 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
       backgroundColor: AppColors.softBackground,
       drawer: buildDrawer(context),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = constraints.maxWidth < 600;
-            final isTablet =
-                constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
-            final isCompact = isMobile || isTablet;
+        child: Stack(
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 600;
+                final isTablet =
+                    constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
+                final isCompact = isMobile || isTablet;
 
-            return Column(
-              children: [
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceLight,
-                    border: Border.all(color: AppColors.borderColor, width: 1),
-                  ),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? AppSpacing.lg : AppSpacing.xxl,
-                    vertical: isMobile ? AppSpacing.md : AppSpacing.lg,
-                  ),
-                  child: const NavBar(),
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.all(
-                      isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                return Column(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceLight,
+                        border: Border.all(
+                          color: AppColors.borderColor,
+                          width: 1,
+                        ),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                        vertical: isMobile ? AppSpacing.md : AppSpacing.lg,
+                      ),
+                      child: const NavBar(),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildActionButtons(context, isCompact),
-                        const SizedBox(height: AppSpacing.xxl),
-                        _buildStatusSection(isCompact),
-                      ],
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.all(
+                          isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildActionButtons(context, isCompact),
+                            const SizedBox(height: AppSpacing.xxl),
+                            _buildStatusSection(isCompact),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            Consumer(
+              builder: (context, ref, child) {
+                if (!mounted) return const SizedBox.shrink();
+                final isLoading = ref.watch(
+                  ngoDasboardProvider.select((v) => v.isLoading),
+                );
+                if (!isLoading) return const SizedBox.shrink();
+                return IgnorePointer(
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: CircularProgressIndicator(
+                          color: AppColors.primaryMaroon,
+                          strokeWidth: 4,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            );
-          },
+                );
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -278,28 +315,20 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
   Widget _buildActionButtons(BuildContext context, bool isCompact) {
     final actionButtons = [
       {
-        'title': 'View Victims',
+        'title': 'Manage Victims',
         'icon': Icons.people_outline,
         'onTap': () {
-          if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const ShowVictimInfo()),
-            );
-          }
+          pageNavigation(const ShowVictimInfo(), context);
+        },
+      },
+      {
+        'title': 'Manage Rescuers',
+        'icon': Icons.group,
+        'onTap': () {
+          pageNavigation(const ShowRescuerInfo(), context);
         },
       },
       {'title': 'Relief Operations', 'icon': Icons.location_on, 'onTap': () {}},
-      {
-        'title': 'Manage Volunteers',
-        'icon': Icons.group,
-        'onTap': () {
-          if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const ManageRescuers()),
-            );
-          }
-        },
-      },
       {'title': 'Submit Reports', 'icon': Icons.description, 'onTap': () {}},
     ];
 
@@ -374,7 +403,7 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
       },
       {
         'title': 'Critical Alerts',
-        'value': '3',
+        'value': notificationCount.toString(),
         'subtitle': 'Needs Attention',
         'color': Colors.red,
         'hasNotification': true,
@@ -539,20 +568,14 @@ class _StatCard extends StatelessWidget {
       child: GestureDetector(
         onTap: () {
           if (title == 'Active Users') {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const ShowVictimInfo()),
-            );
+            pageNavigation(const ShowVictimInfo(), context);
           } else if (title == 'Volunteers') {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (context) => const ManageRescuers()),
-            );
+            pageNavigation(const ManageRescuers(), context);
           } else if (title == 'Critical Alerts') {
             // Stop audio playback
             onTap?.call();
             if (context.mounted) {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => const CriticalAlerts()),
-              );
+              pageNavigation(const CriticalAlerts(), context);
             }
           }
         },

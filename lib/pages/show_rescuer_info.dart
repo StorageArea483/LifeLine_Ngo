@@ -3,31 +3,30 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:life_line_ngo/pages/ngo_dashboard.dart';
-import 'package:life_line_ngo/providers/victim_info_provider.dart';
+import 'package:life_line_ngo/providers/rescuer_info_provider.dart';
 import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/widgets/global/page_message.dart';
 import 'package:life_line_ngo/widgets/global/page_navigation.dart';
 import 'package:life_line_ngo/widgets/nav_bar.dart';
 
-class ShowVictimInfo extends ConsumerStatefulWidget {
-  const ShowVictimInfo({super.key});
+class ShowRescuerInfo extends ConsumerStatefulWidget {
+  const ShowRescuerInfo({super.key});
 
   @override
-  ConsumerState<ShowVictimInfo> createState() => _ShowVictimInfoState();
+  ConsumerState<ShowRescuerInfo> createState() => _ShowRescuerInfoState();
 }
 
-class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
+class _ShowRescuerInfoState extends ConsumerState<ShowRescuerInfo> {
   final TextEditingController _searchController = TextEditingController();
-  FirebaseFirestore? _victimFirestore;
+  FirebaseFirestore? _rescuerFirestore;
 
-  // life-line-victim database credentials
-  static const FirebaseOptions _victimFirebaseOptions = FirebaseOptions(
-    apiKey: 'AIzaSyCgdeU_737w9twNR2zt5dzyG5EXK5uKxR0',
-    appId: '1:909144850972:web:a9eb7a5cfcec7e437c55d9',
-    messagingSenderId: '909144850972',
-    projectId: 'life-line-victim-27aaa',
-    authDomain: 'life-line-victim-27aaa.firebaseapp.com',
-    storageBucket: 'life-line-victim-27aaa.firebasestorage.app',
+  // life-line-rescuer database credentials
+  static const FirebaseOptions _rescuerFirebaseOptions = FirebaseOptions(
+    apiKey: 'AIzaSyDs-CoAc_fqrB-3BMl4N7pYSavyNV72zUQ',
+    appId: '1:494066243537:android:ffdb36137d6d3cb1a4b2f0',
+    messagingSenderId: '494066243537',
+    projectId: 'life-line-rescuer-b1f1c',
+    storageBucket: 'life-line-rescuer-b1f1c.firebasestorage.app',
   );
 
   @override
@@ -40,30 +39,35 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initVictimFirebase();
+      _initRescuerFirebase();
     });
   }
 
-  Future<void> _initVictimFirebase() async {
+  Future<void> _initRescuerFirebase() async {
     if (mounted) {
-      ref.read(victimPageProvider.notifier).setLoading(true);
+      ref.read(rescuerPageProvider.notifier).setLoading(true);
     }
 
     try {
-      final secondaryApp = await Firebase.initializeApp(
-        name: 'life-line-victim',
-        options: _victimFirebaseOptions,
-      );
-      _victimFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
-      await _fetchVictims();
+      FirebaseApp rescuerApp;
+      try {
+        rescuerApp = Firebase.app('life-line-rescuer');
+      } catch (_) {
+        rescuerApp = await Firebase.initializeApp(
+          name: 'life-line-rescuer',
+          options: _rescuerFirebaseOptions,
+        );
+      }
+      _rescuerFirestore = FirebaseFirestore.instanceFor(app: rescuerApp);
+      await _fetchRescuers();
       if (mounted) {
-        ref.read(victimPageProvider.notifier).setLoading(false);
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
       }
     } catch (e) {
       if (mounted) {
-        ref.read(victimPageProvider.notifier).setLoading(false);
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
         pageMessage(
-          'Error fetching victims, please try again',
+          'Error fetching rescuers, please try again',
           context,
           AppColors.error,
         );
@@ -72,66 +76,71 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     }
   }
 
-  Future<void> _fetchVictims() async {
-    if (_victimFirestore == null) return;
+  Future<void> _fetchRescuers() async {
+    if (_rescuerFirestore == null) return;
 
     try {
-      final snapshot = await _victimFirestore!.collection('users').get();
+      final snapshot = await _rescuerFirestore!
+          .collection('users')
+          .where('status', isEqualTo: 'approved')
+          .get();
 
       if (!mounted) return;
 
-      final allVictims = snapshot.docs.map((doc) => doc.data()).toList();
+      final allRescuers = snapshot.docs.map((doc) => doc.data()).toList();
 
       final searchTerm = _searchController.text;
 
       List<Map<String, dynamic>> finalList;
 
       if (searchTerm.isEmpty) {
-        finalList = allVictims;
+        finalList = allRescuers;
       } else {
-        finalList = allVictims.where((victim) {
-          final name = (victim['name'] ?? '').toString();
-          return name.toLowerCase().contains(searchTerm.toLowerCase());
+        finalList = allRescuers.where((rescuer) {
+          final firstName = (rescuer['firstName'] ?? '').toString();
+          final lastName = (rescuer['lastName'] ?? '').toString();
+          final fullName = '$firstName $lastName';
+          return fullName.toLowerCase().contains(searchTerm.toLowerCase());
         }).toList();
       }
 
       if (mounted) {
-        ref.read(victimPageProvider.notifier).setVictims(finalList);
+        ref.read(rescuerPageProvider.notifier).setRescuers(finalList);
       }
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<void> refreshVictims() async {
+  Future<void> refreshRescuers() async {
     if (mounted) {
-      ref.read(victimPageProvider.notifier).setLoading(true);
+      ref.read(rescuerPageProvider.notifier).setLoading(true);
     }
 
     try {
-      await _fetchVictims();
+      await _fetchRescuers();
     } catch (e) {
       if (mounted) {
-        pageMessage('Error refreshing user data', context, AppColors.error);
+        pageMessage('Error refreshing rescuer data', context, AppColors.error);
       }
     } finally {
       if (mounted) {
-        ref.read(victimPageProvider.notifier).setLoading(false);
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
       }
     }
   }
 
-  Future<void> _removeUser(String email) async {
-    if (_victimFirestore == null) return;
+  Future<void> _removeUser(String id) async {
+    if (_rescuerFirestore == null) return;
 
     if (mounted) {
-      ref.read(victimPageProvider.notifier).setLoading(true);
+      ref.read(rescuerPageProvider.notifier).setLoading(true);
     }
 
     try {
-      final querySnapshot = await _victimFirestore!
+      final querySnapshot = await _rescuerFirestore!
           .collection('users')
-          .where('email', isEqualTo: email)
+          .where('id', isEqualTo: id)
           .get();
 
       for (var doc in querySnapshot.docs) {
@@ -139,15 +148,15 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       }
 
       if (mounted) {
-        ref.read(victimPageProvider.notifier).setLoading(false);
-        pageMessage('User removed successfully', context, AppColors.success);
-        await _fetchVictims(); // Refresh data after removal
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
+        pageMessage('Rescuer removed successfully', context, AppColors.success);
+        await _fetchRescuers();
       }
     } catch (e) {
       if (mounted) {
-        ref.read(victimPageProvider.notifier).setLoading(false);
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
         pageMessage(
-          'Error removing user, please try again',
+          'Error removing rescuer, please try again',
           context,
           AppColors.error,
         );
@@ -155,17 +164,17 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     }
   }
 
-  Future<void> _blockUser(String email) async {
-    if (_victimFirestore == null) return;
+  Future<void> _blockUser(String id) async {
+    if (_rescuerFirestore == null) return;
 
     if (mounted) {
-      ref.read(victimPageProvider.notifier).setLoading(true);
+      ref.read(rescuerPageProvider.notifier).setLoading(true);
     }
 
     try {
-      final querySnapshot = await _victimFirestore!
+      final querySnapshot = await _rescuerFirestore!
           .collection('users')
-          .where('email', isEqualTo: email)
+          .where('id', isEqualTo: id)
           .get();
 
       for (var doc in querySnapshot.docs) {
@@ -173,15 +182,15 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       }
 
       if (mounted) {
-        ref.read(victimPageProvider.notifier).setLoading(false);
-        pageMessage('User blocked successfully', context, AppColors.success);
-        await _fetchVictims(); // Refresh data after blocking
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
+        pageMessage('Rescuer blocked successfully', context, AppColors.success);
+        await _fetchRescuers();
       }
     } catch (e) {
       if (mounted) {
-        ref.read(victimPageProvider.notifier).setLoading(false);
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
         pageMessage(
-          'Error blocking User, please retry',
+          'Error blocking rescuer, please retry',
           context,
           AppColors.error,
         );
@@ -189,17 +198,17 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     }
   }
 
-  Future<void> _unblockUser(String email) async {
-    if (_victimFirestore == null) return;
+  Future<void> _unblockUser(String id) async {
+    if (_rescuerFirestore == null) return;
 
     if (mounted) {
-      ref.read(victimPageProvider.notifier).setLoading(true);
+      ref.read(rescuerPageProvider.notifier).setLoading(true);
     }
 
     try {
-      final querySnapshot = await _victimFirestore!
+      final querySnapshot = await _rescuerFirestore!
           .collection('users')
-          .where('email', isEqualTo: email)
+          .where('id', isEqualTo: id)
           .get();
 
       for (var doc in querySnapshot.docs) {
@@ -207,15 +216,19 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       }
 
       if (mounted) {
-        ref.read(victimPageProvider.notifier).setLoading(false);
-        pageMessage('User unblocked successfully', context, AppColors.success);
-        await _fetchVictims(); // Refresh data after unblocking
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
+        pageMessage(
+          'Rescuer unblocked successfully',
+          context,
+          AppColors.success,
+        );
+        await _fetchRescuers();
       }
     } catch (e) {
       if (mounted) {
-        ref.read(victimPageProvider.notifier).setLoading(false);
+        ref.read(rescuerPageProvider.notifier).setLoading(false);
         pageMessage(
-          'Errorblocking User, please retry',
+          'Error unblocking rescuer, please retry',
           context,
           AppColors.error,
         );
@@ -286,7 +299,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
               builder: (context, ref, child) {
                 if (!mounted) return const SizedBox.shrink();
                 final isLoading = ref.watch(
-                  victimPageProvider.select((v) => v.isLoading),
+                  rescuerPageProvider.select((v) => v.isLoading),
                 );
                 if (!isLoading) return const SizedBox.shrink();
                 return IgnorePointer(
@@ -360,7 +373,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'User Management',
+                  'Rescuer Management',
                   style: TextStyle(
                     fontSize: isMobile ? 24 : 28,
                     fontWeight: FontWeight.w700,
@@ -369,7 +382,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Manage and monitor registered Users',
+                  'Manage and monitor registered Rescuers',
                   style: TextStyle(
                     fontSize: isMobile ? 14 : 16,
                     color: AppColors.textSecondary,
@@ -416,7 +429,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                       child: TextField(
                         controller: _searchController,
                         decoration: const InputDecoration(
-                          hintText: 'Enter User name to search...',
+                          hintText: 'Enter rescuer name to search...',
                           hintStyle: TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 14,
@@ -439,7 +452,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: refreshVictims,
+                        onPressed: refreshRescuers,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryMaroon,
                           foregroundColor: Colors.white,
@@ -449,7 +462,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                           ),
                         ),
                         child: const Text(
-                          'Search Users',
+                          'Search Rescuers',
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -471,7 +484,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                         child: TextField(
                           controller: _searchController,
                           decoration: const InputDecoration(
-                            hintText: 'Enter User name to search...',
+                            hintText: 'Enter rescuer name to search...',
                             hintStyle: TextStyle(
                               color: AppColors.textSecondary,
                               fontSize: 14,
@@ -494,7 +507,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                     SizedBox(
                       height: 48,
                       child: ElevatedButton(
-                        onPressed: refreshVictims,
+                        onPressed: refreshRescuers,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primaryMaroon,
                           foregroundColor: Colors.white,
@@ -507,7 +520,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                           ),
                         ),
                         child: const Text(
-                          'Search Users',
+                          'Search Rescuers',
                           style: TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -521,9 +534,9 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
 
   Widget _buildContent(bool isMobile, bool isTablet, WidgetRef ref) {
     if (!mounted) return const SizedBox.shrink();
-    final victims = ref.watch(victimPageProvider.select((v) => v.victims));
+    final rescuers = ref.watch(rescuerPageProvider.select((v) => v.rescuers));
 
-    if (victims.isEmpty) {
+    if (rescuers.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.xxxxl),
@@ -537,7 +550,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
               ),
               const SizedBox(height: AppSpacing.lg),
               Text(
-                'No Victims data found',
+                'No Rescuers data found',
                 style: AppText.subtitle.copyWith(
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w600,
@@ -550,11 +563,11 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     }
 
     return isMobile || isTablet
-        ? _buildMobileVictimList(ref)
-        : _buildWebVictimTable();
+        ? _buildMobileRescuerList(ref)
+        : _buildWebRescuerTable();
   }
 
-  Widget _buildWebVictimTable() {
+  Widget _buildWebRescuerTable() {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -574,14 +587,14 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
           Consumer(
             builder: (context, ref, child) {
               if (!mounted) return const SizedBox.shrink();
-              final victims = ref.watch(
-                victimPageProvider.select((v) => v.victims),
+              final rescuers = ref.watch(
+                rescuerPageProvider.select((v) => v.rescuers),
               );
               return Table(
                 columnWidths: const {
                   0: FlexColumnWidth(3),
                   1: FlexColumnWidth(3),
-                  2: FlexColumnWidth(2),
+                  2: FlexColumnWidth(3),
                   3: FlexColumnWidth(1.2),
                   4: FlexColumnWidth(1.5),
                 },
@@ -606,7 +619,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                             vertical: AppSpacing.lg,
                           ),
                           child: Text(
-                            'Name',
+                            'Full Name',
                             style: AppText.formDescription.copyWith(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -624,7 +637,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                             vertical: AppSpacing.lg,
                           ),
                           child: Text(
-                            'Contact Information',
+                            'Registered With',
                             style: AppText.formDescription.copyWith(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -642,7 +655,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                             vertical: AppSpacing.lg,
                           ),
                           child: Text(
-                            'Location',
+                            'Branch Name',
                             style: AppText.formDescription.copyWith(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
@@ -661,7 +674,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                           ),
                           child: Center(
                             child: Text(
-                              'Remove User',
+                              'Remove',
                               style: AppText.formDescription.copyWith(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -681,7 +694,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                           ),
                           child: Center(
                             child: Text(
-                              'Actions',
+                              'Block',
                               style: AppText.formDescription.copyWith(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -695,12 +708,17 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                     ],
                   ),
                   // Data Rows
-                  ...victims.asMap().entries.map((entry) {
-                    final victim = entry.value;
-                    final name = victim['name'] ?? 'N/A';
-                    final email = victim['email'] ?? 'N/A';
-                    final String location = victim['location'] ?? 'N/A';
-                    final isBlocked = victim['blocked'] ?? false;
+                  ...rescuers.asMap().entries.map((entry) {
+                    final rescuer = entry.value;
+                    final firstName = rescuer['firstName'] ?? '';
+                    final lastName = rescuer['lastName'] ?? '';
+                    final fullName = '$firstName $lastName'.trim().isEmpty
+                        ? 'N/A'
+                        : '$firstName $lastName'.trim();
+                    final ngoName = rescuer['ngoName'] ?? 'N/A';
+                    final branchName = rescuer['branchName'] ?? 'N/A';
+                    final id = rescuer['id'] ?? '';
+                    final isBlocked = rescuer['blocked'] ?? false;
 
                     return TableRow(
                       decoration: BoxDecoration(
@@ -711,7 +729,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                         ),
                       ),
                       children: [
-                        // Name Cell
+                        // Full Name Cell
                         TableCell(
                           verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
@@ -720,7 +738,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                               vertical: AppSpacing.lg,
                             ),
                             child: Text(
-                              name,
+                              fullName,
                               style: AppText.fieldLabel.copyWith(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -732,7 +750,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                             ),
                           ),
                         ),
-                        // Contact Cell
+                        // Registered With (NGO) Cell
                         TableCell(
                           verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
@@ -741,7 +759,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                               vertical: AppSpacing.lg,
                             ),
                             child: Text(
-                              email,
+                              ngoName,
                               style: AppText.fieldLabel.copyWith(
                                 fontSize: 12,
                                 color: AppColors.textSecondary,
@@ -753,7 +771,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                             ),
                           ),
                         ),
-                        // Location Cell
+                        // Branch Name Cell
                         TableCell(
                           verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
@@ -762,7 +780,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                               vertical: AppSpacing.lg,
                             ),
                             child: Text(
-                              location.isEmpty ? 'N/A' : location,
+                              branchName,
                               maxLines: 4,
                               style: AppText.fieldLabel.copyWith(
                                 fontSize: 12,
@@ -775,7 +793,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                             ),
                           ),
                         ),
-                        // Remove User Cell
+                        // Remove Cell
                         TableCell(
                           verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
@@ -788,8 +806,8 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
                                 onPressed: () {
-                                  if (email != 'N/A') {
-                                    _removeUser(email);
+                                  if (id.isNotEmpty) {
+                                    _removeUser(id);
                                   }
                                 },
                                 icon: const Icon(
@@ -801,7 +819,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                             ),
                           ),
                         ),
-                        // Actions Cell
+                        // Block / Unblock Cell
                         TableCell(
                           verticalAlignment: TableCellVerticalAlignment.middle,
                           child: Padding(
@@ -814,10 +832,10 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
                                 onPressed: () {
-                                  if (email != 'N/A') {
+                                  if (id.isNotEmpty) {
                                     isBlocked
-                                        ? _unblockUser(email)
-                                        : _blockUser(email);
+                                        ? _unblockUser(id)
+                                        : _blockUser(id);
                                   }
                                 },
                                 icon: isBlocked
@@ -847,19 +865,24 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     );
   }
 
-  Widget _buildMobileVictimList(WidgetRef ref) {
+  Widget _buildMobileRescuerList(WidgetRef ref) {
     if (!mounted) return const SizedBox.shrink();
-    final victims = ref.watch(victimPageProvider.select((v) => v.victims));
+    final rescuers = ref.watch(rescuerPageProvider.select((v) => v.rescuers));
     return Column(
-      children: victims.map((victim) => _buildMobileCard(victim)).toList(),
+      children: rescuers.map((rescuer) => _buildMobileCard(rescuer)).toList(),
     );
   }
 
-  Widget _buildMobileCard(Map<String, dynamic> victim) {
-    final name = victim['name'] ?? 'N/A';
-    final email = victim['email'] ?? 'N/A';
-    final String location = victim['location'] ?? 'N/A';
-    final isBlocked = victim['blocked'] ?? false;
+  Widget _buildMobileCard(Map<String, dynamic> rescuer) {
+    final firstName = rescuer['firstName'] ?? '';
+    final lastName = rescuer['lastName'] ?? '';
+    final fullName = '$firstName $lastName'.trim().isEmpty
+        ? 'N/A'
+        : '$firstName $lastName'.trim();
+    final ngoName = rescuer['ngoName'] ?? 'N/A';
+    final branchName = rescuer['branchName'] ?? 'N/A';
+    final id = rescuer['id'] ?? '';
+    final isBlocked = rescuer['blocked'] ?? false;
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.lg),
@@ -881,7 +904,7 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
           Padding(
             padding: const EdgeInsets.all(AppSpacing.md),
             child: Text(
-              name,
+              fullName,
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
@@ -899,15 +922,15 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
             padding: const EdgeInsets.all(AppSpacing.md),
             child: Column(
               children: [
-                _MobileInfoRow(
-                  label: 'Email',
-                  value: email,
+                _RescuerMobileInfoRow(
+                  label: 'NGO',
+                  value: ngoName,
                   isBlocked: isBlocked,
                 ),
                 const SizedBox(height: AppSpacing.md),
-                _MobileInfoRow(
-                  label: 'Location',
-                  value: location.isEmpty ? 'N/A' : location,
+                _RescuerMobileInfoRow(
+                  label: 'Branch',
+                  value: branchName,
                   isBlocked: isBlocked,
                 ),
                 const SizedBox(height: AppSpacing.lg),
@@ -916,24 +939,24 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
                 Row(
                   children: [
                     Expanded(
-                      child: _MobileActionButton(
+                      child: _RescuerMobileActionButton(
                         label: 'Remove',
                         color: AppColors.error,
                         onPressed: () {
-                          if (email != 'N/A') _removeUser(email);
+                          if (id.isNotEmpty) _removeUser(id);
                         },
                       ),
                     ),
                     const SizedBox(width: AppSpacing.xl),
                     Expanded(
-                      child: _MobileActionButton(
+                      child: _RescuerMobileActionButton(
                         label: isBlocked ? 'Unblock' : 'Block',
                         color: isBlocked
                             ? AppColors.success
                             : AppColors.warning,
                         onPressed: () {
-                          if (email != 'N/A') {
-                            isBlocked ? _unblockUser(email) : _blockUser(email);
+                          if (id.isNotEmpty) {
+                            isBlocked ? _unblockUser(id) : _blockUser(id);
                           }
                         },
                       ),
@@ -949,12 +972,12 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
   }
 }
 
-class _MobileInfoRow extends StatelessWidget {
+class _RescuerMobileInfoRow extends StatelessWidget {
   final String label;
   final String value;
   final bool isBlocked;
 
-  const _MobileInfoRow({
+  const _RescuerMobileInfoRow({
     required this.label,
     required this.value,
     required this.isBlocked,
@@ -996,12 +1019,12 @@ class _MobileInfoRow extends StatelessWidget {
   }
 }
 
-class _MobileActionButton extends StatelessWidget {
+class _RescuerMobileActionButton extends StatelessWidget {
   final String label;
   final Color color;
   final VoidCallback onPressed;
 
-  const _MobileActionButton({
+  const _RescuerMobileActionButton({
     required this.label,
     required this.color,
     required this.onPressed,

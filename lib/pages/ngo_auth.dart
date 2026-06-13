@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/pages/ngo_login.dart';
 import 'package:life_line_ngo/pages/ngo_select_screen.dart';
+import 'package:life_line_ngo/widgets/global/page_navigation.dart';
 
 class NgoAuth extends StatelessWidget {
   const NgoAuth({super.key});
@@ -113,11 +114,7 @@ class NgoAuth extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () {
                   if (context.mounted) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (context) => const NgoSelectScreen(),
-                      ),
-                    );
+                    pageNavigation(const NgoSelectScreen(), context);
                   }
                 },
                 style: AppButtons.submit,
@@ -133,9 +130,7 @@ class NgoAuth extends StatelessWidget {
               child: OutlinedButton(
                 onPressed: () {
                   if (context.mounted) {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (context) => const NgoLogin()),
-                    );
+                    pageNavigation(const NgoLogin(), context);
                   }
                 },
                 style: OutlinedButton.styleFrom(

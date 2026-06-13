@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:life_line_ngo/providers/ngo_reg_provider.dart';
 import 'package:life_line_ngo/pages/ngo_login.dart';
+import 'package:life_line_ngo/widgets/global/page_message.dart';
+import 'package:life_line_ngo/widgets/global/page_navigation.dart';
 import 'package:life_line_ngo/widgets/store_ngo_info.dart';
 import 'package:life_line_ngo/pages/ngo_select_screen.dart';
 import 'package:life_line_ngo/services/appwrite_service.dart';
@@ -69,11 +71,10 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
     if (!mounted) return;
     final selectedProgram = ref.read(ngoRegProvider).selectedProgram;
     if (selectedProgram.isEmpty && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one checkbox.'),
-          backgroundColor: AppColors.error,
-        ),
+      pageMessage(
+        'Please select at least one checkbox.',
+        context,
+        AppColors.error,
       );
       return;
     }
@@ -120,19 +121,13 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                     // Log error but continue with upload
                     if (mounted) {
                       ref.read(ngoRegProvider.notifier).setLoading(false);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'An unexpected error occurred, please retry',
-                          ),
-                          backgroundColor: AppColors.error,
-                        ),
+                      pageMessage(
+                        'An unexpected error occurred, please retry',
+                        context,
+                        AppColors.error,
                       );
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (context) => const NgoSelectScreen(),
-                        ),
-                      );
+
+                      pageNavigation(const NgoSelectScreen(), context);
                     }
                   }
                 }
@@ -141,17 +136,12 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
               // Log error but continue with upload
               if (mounted) {
                 ref.read(ngoRegProvider.notifier).setLoading(false);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('An unexpected error occurred, please retry'),
-                    backgroundColor: AppColors.error,
-                  ),
+                pageMessage(
+                  'An unexpected error occurred, please retry',
+                  context,
+                  AppColors.error,
                 );
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (context) => const NgoSelectScreen(),
-                  ),
-                );
+                pageNavigation(const NgoSelectScreen(), context);
               }
             }
           }
@@ -197,11 +187,10 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
         }
         if (context.mounted) {
           // ignore: use_build_context_synchronously
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('An unexpected error occurred, please try again'),
-              backgroundColor: AppColors.error,
-            ),
+          pageMessage(
+            'An unexpected error occurred, please try again',
+            context,
+            AppColors.error,
           );
         }
       }
@@ -306,11 +295,7 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                           child: GestureDetector(
                             onTap: () {
                               if (context.mounted) {
-                                Navigator.of(context).pushReplacement(
-                                  MaterialPageRoute(
-                                    builder: (context) => const NgoLogin(),
-                                  ),
-                                );
+                                pageNavigation(const NgoLogin(), context);
                               }
                             },
                             child: Container(
@@ -409,11 +394,9 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                                   child: GestureDetector(
                                     onTap: () {
                                       if (mounted) {
-                                        Navigator.of(context).pushReplacement(
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                const NgoSelectScreen(),
-                                          ),
+                                        pageNavigation(
+                                          const NgoSelectScreen(),
+                                          context,
                                         );
                                       }
                                     },

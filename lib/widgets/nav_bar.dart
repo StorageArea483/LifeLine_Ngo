@@ -4,6 +4,7 @@ import 'package:life_line_ngo/pages/ngo_dashboard.dart';
 import 'package:life_line_ngo/pages/ngo_login.dart';
 import 'package:life_line_ngo/pages/show_victim_info.dart';
 import 'package:life_line_ngo/styles/styles.dart';
+import 'package:life_line_ngo/widgets/global/page_navigation.dart';
 
 class NavBar extends StatefulWidget {
   const NavBar({super.key});
@@ -72,14 +73,7 @@ class _NavBarState extends State<NavBar> {
                             cursor: SystemMouseCursors.click,
                             child: GestureDetector(
                               onTap: () {
-                                if (mounted) {
-                                  Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const NgoDashboard(),
-                                    ),
-                                  );
-                                }
+                                pageNavigation(const NgoDashboard(), context);
                               },
                               child: const Text(
                                 'Dashboard',
@@ -93,11 +87,9 @@ class _NavBarState extends State<NavBar> {
                             child: GestureDetector(
                               onTap: () {
                                 if (mounted) {
-                                  Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const ShowVictimInfo(),
-                                    ),
+                                  pageNavigation(
+                                    const ShowVictimInfo(),
+                                    context,
                                   );
                                 }
                               },
@@ -143,13 +135,7 @@ class _NavBarState extends State<NavBar> {
                             cursor: SystemMouseCursors.click,
                             child: ElevatedButton(
                               onPressed: () {
-                                if (mounted) {
-                                  Navigator.of(context).pushReplacement(
-                                    MaterialPageRoute(
-                                      builder: (context) => const NgoAuth(),
-                                    ),
-                                  );
-                                }
+                                pageNavigation(const NgoAuth(), context);
                               },
                               style: AppButtons.submit,
                               child: Text(
@@ -215,11 +201,7 @@ Widget buildDrawer(BuildContext context) {
             ),
             title: const Text('Dashboard', style: AppText.fieldLabel),
             onTap: () {
-              if (context.mounted) {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(builder: (context) => const NgoDashboard()),
-                );
-              }
+              pageNavigation(const NgoDashboard(), context);
             },
           ),
           ListTile(
@@ -229,13 +211,7 @@ Widget buildDrawer(BuildContext context) {
             ),
             title: const Text('View Victims', style: AppText.fieldLabel),
             onTap: () {
-              if (context.mounted) {
-                Navigator.of(context).pushReplacement(
-                  MaterialPageRoute(
-                    builder: (context) => const ShowVictimInfo(),
-                  ),
-                );
-              }
+              pageNavigation(const ShowVictimInfo(), context);
             },
           ),
           ListTile(
@@ -276,9 +252,7 @@ Widget buildDrawer(BuildContext context) {
                 onPressed: () {
                   if (context.mounted) {
                     Navigator.pop(context);
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (context) => const NgoLogin()),
-                    );
+                    pageNavigation(const NgoLogin(), context);
                   }
                 },
                 style: AppButtons.submit,

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_dropzone/flutter_dropzone.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:life_line_ngo/widgets/global/page_message.dart';
 import 'package:life_line_ngo/widgets/ngo_file_size.dart';
 import 'package:life_line_ngo/providers/ngo_reg_provider.dart';
 import 'package:life_line_ngo/styles/styles.dart';
@@ -189,11 +190,10 @@ class _UploadNgoFileState extends ConsumerState<UploadNgoFile> {
       _acceptFile(files.first);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Error picking file, please try again'),
-            backgroundColor: AppColors.error,
-          ),
+        pageMessage(
+          'Error picking file, please try again',
+          context,
+          AppColors.error,
         );
       }
     }
@@ -220,11 +220,10 @@ class _UploadNgoFileState extends ConsumerState<UploadNgoFile> {
       widget.onFileSelected?.call(fileData, name, mime);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('An unexpected error occurred, please try again'),
-            backgroundColor: AppColors.error,
-          ),
+        pageMessage(
+          'An unexpected error occurred, please try again',
+          context,
+          AppColors.error,
         );
       }
     }

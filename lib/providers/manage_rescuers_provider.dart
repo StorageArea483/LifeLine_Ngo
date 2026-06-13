@@ -1,8 +1,8 @@
-
 import 'package:flutter_riverpod/legacy.dart';
 
 class ManageRescuersNotifier extends StateNotifier<ManageRescuersState> {
-  ManageRescuersNotifier() : super(const ManageRescuersState(isLoading: false, rescuerRequests: []));
+  ManageRescuersNotifier()
+    : super(const ManageRescuersState(isLoading: false, rescuerRequests: []));
 
   void setLoading(bool loading) {
     state = state.copyWith(isLoading: loading);
@@ -12,6 +12,7 @@ class ManageRescuersNotifier extends StateNotifier<ManageRescuersState> {
     state = state.copyWith(rescuerRequests: requests);
   }
 }
+
 class ManageRescuersState {
   final bool isLoading;
   final List<Map<String, dynamic>> rescuerRequests;
@@ -32,6 +33,8 @@ class ManageRescuersState {
   }
 }
 
-final manageRescuersProvider = StateNotifierProvider<ManageRescuersNotifier, ManageRescuersState>(
-  (ref) => ManageRescuersNotifier(),
-);
+final manageRescuersProvider =
+    StateNotifierProvider.autoDispose<
+      ManageRescuersNotifier,
+      ManageRescuersState
+    >((ref) => ManageRescuersNotifier());
