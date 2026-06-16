@@ -42,35 +42,37 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
     if (mounted) {
       ref.read(manageRescuersProvider.notifier).setLoading(true);
     }
+
     try {
-      final secondaryApp = await Firebase.initializeApp(
-        name: 'life-line-rescuer',
-        options: _rescuerFirebaseOptions,
-      );
-      _rescuerFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
+      FirebaseApp rescuerApp;
+
+      try {
+        rescuerApp = Firebase.app('life-line-rescuer');
+      } catch (_) {
+        rescuerApp = await Firebase.initializeApp(
+          name: 'life-line-rescuer',
+          options: _rescuerFirebaseOptions,
+        );
+      }
+
+      _rescuerFirestore = FirebaseFirestore.instanceFor(app: rescuerApp);
+
       await _fetchRescuerRequests();
+
       if (mounted) {
         ref.read(manageRescuersProvider.notifier).setLoading(false);
       }
     } catch (e) {
-      // If already initialized, get the existing instance
-      try {
-        final existingApp = Firebase.app('life-line-rescuer');
-        _rescuerFirestore = FirebaseFirestore.instanceFor(app: existingApp);
-        await _fetchRescuerRequests();
-        if (mounted) {
-          ref.read(manageRescuersProvider.notifier).setLoading(false);
-        }
-      } catch (e) {
-        if (mounted) {
-          ref.read(manageRescuersProvider.notifier).setLoading(false);
-          pageMessage(
-            'Failed to initialize rescuer database, Please try again later',
-            context,
-            AppColors.error,
-          );
-          pageNavigation(const NgoDashboard(), context);
-        }
+      if (mounted) {
+        ref.read(manageRescuersProvider.notifier).setLoading(false);
+
+        pageMessage(
+          'Failed to initialize rescuer database, Please try again later',
+          context,
+          AppColors.error,
+        );
+
+        pageNavigation(const NgoDashboard(), context);
       }
     }
   }
@@ -290,8 +292,7 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
                           children: [
                             _buildHeader(isMobile),
                             SizedBox(
-                              height:
-                                  isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                              height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
                             ),
                             Consumer(
                               builder: (context, ref, child) {
@@ -307,7 +308,7 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
               },
             ),
 
-            // Loading overlay — same pattern as show_victim_info.dart
+            // Loading overlay
             Consumer(
               builder: (context, ref, child) {
                 if (!mounted) return const SizedBox.shrink();
@@ -443,9 +444,7 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
       );
     }
 
-    return isMobile || isTablet
-        ? _buildMobileList(ref)
-        : _buildWebTable(ref);
+    return isMobile || isTablet ? _buildMobileList(ref) : _buildWebTable(ref);
   }
 
   Widget _buildWebTable(WidgetRef ref) {
@@ -507,10 +506,7 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
                 return TableRow(
                   decoration: BoxDecoration(
                     color: AppColors.softBackground.withValues(alpha: 0.3),
-                    border: Border.all(
-                      color: AppColors.borderLight,
-                      width: 1,
-                    ),
+                    border: Border.all(color: AppColors.borderLight, width: 1),
                   ),
                   children: [
                     // Name + status badge
@@ -667,10 +663,9 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
       manageRescuersProvider.select((v) => v.rescuerRequests),
     );
     return Column(
-      children:
-          rescuerRequests
-              .map((request) => _buildMobileCard(request))
-              .toList(),
+      children: rescuerRequests
+          .map((request) => _buildMobileCard(request))
+          .toList(),
     );
   }
 
@@ -824,8 +819,6 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
     );
   }
 }
-
-// ─── Reusable mobile widgets ──────────────────────────────────────────────────
 
 class _MobileInfoRow extends StatelessWidget {
   final String label;

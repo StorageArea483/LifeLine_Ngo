@@ -50,23 +50,34 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
     }
 
     try {
-      final secondaryApp = await Firebase.initializeApp(
-        name: 'life-line-victim',
-        options: _victimFirebaseOptions,
-      );
-      _victimFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
+      FirebaseApp victimApp;
+
+      try {
+        victimApp = Firebase.app('life-line-victim');
+      } catch (_) {
+        victimApp = await Firebase.initializeApp(
+          name: 'life-line-victim',
+          options: _victimFirebaseOptions,
+        );
+      }
+
+      _victimFirestore = FirebaseFirestore.instanceFor(app: victimApp);
+
       await _fetchVictims();
+
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
       }
     } catch (e) {
       if (mounted) {
         ref.read(victimPageProvider.notifier).setLoading(false);
+
         pageMessage(
           'Error fetching victims, please try again',
           context,
           AppColors.error,
         );
+
         pageNavigation(const NgoDashboard(), context);
       }
     }

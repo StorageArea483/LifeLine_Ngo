@@ -106,27 +106,28 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
 
   Future<void> _initVictimFirebase() async {
     try {
-      final secondaryApp = await Firebase.initializeApp(
-        name: 'life-line-victim',
-        options: _victimFirebaseOptions,
-      );
-      _victimFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
+      FirebaseApp victimApp;
+
+      try {
+        victimApp = Firebase.app('life-line-victim');
+      } catch (_) {
+        victimApp = await Firebase.initializeApp(
+          name: 'life-line-victim',
+          options: _victimFirebaseOptions,
+        );
+      }
+
+      _victimFirestore = FirebaseFirestore.instanceFor(app: victimApp);
+
       await _fetchVictimCount();
     } catch (e) {
-      // If already initialized, get the existing instance
-      try {
-        final existingApp = Firebase.app('life-line-victim');
-        _victimFirestore = FirebaseFirestore.instanceFor(app: existingApp);
-        await _fetchVictimCount();
-      } catch (e) {
-        if (mounted) {
-          pageMessage(
-            'An unexpected error occurred, Please re-login',
-            context,
-            AppColors.error,
-          );
-          pageNavigation(const NgoLogin(), context);
-        }
+      if (mounted) {
+        pageMessage(
+          'An unexpected error occurred, Please re-login',
+          context,
+          AppColors.error,
+        );
+        pageNavigation(const NgoLogin(), context);
       }
     }
   }

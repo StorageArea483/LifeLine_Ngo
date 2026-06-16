@@ -58,33 +58,33 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
     if (mounted) {
       ref.read(ngoLoginProvider.notifier).setLoading(true);
     }
+
     try {
-      // Initialize secondary Firebase app for life-line-admin
-      final secondaryApp = await Firebase.initializeApp(
-        name: 'life-line-admin',
-        options: _adminFirebaseOptions,
-      );
-      _adminFirestore = FirebaseFirestore.instanceFor(app: secondaryApp);
+      FirebaseApp adminApp;
+
+      try {
+        adminApp = Firebase.app('life-line-admin');
+      } catch (_) {
+        adminApp = await Firebase.initializeApp(
+          name: 'life-line-admin',
+          options: _adminFirebaseOptions,
+        );
+      }
+
+      _adminFirestore = FirebaseFirestore.instanceFor(app: adminApp);
+
       if (mounted) {
         ref.read(ngoLoginProvider.notifier).setLoading(false);
       }
     } catch (e) {
-      // If already initialized, get the existing instance
-      try {
-        final existingApp = Firebase.app('life-line-admin');
-        _adminFirestore = FirebaseFirestore.instanceFor(app: existingApp);
-        if (mounted) {
-          ref.read(ngoLoginProvider.notifier).setLoading(false);
-        }
-      } catch (e) {
-        if (mounted) {
-          ref.read(ngoLoginProvider.notifier).setLoading(false);
-          pageMessage(
-            'An unexpected error occurred, please try again',
-            context,
-            AppColors.error,
-          );
-        }
+      if (mounted) {
+        ref.read(ngoLoginProvider.notifier).setLoading(false);
+
+        pageMessage(
+          'An unexpected error occurred, please try again',
+          context,
+          AppColors.error,
+        );
       }
     }
   }
