@@ -27,23 +27,54 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _fetchVictimRequests();
+      _fetchData();
     });
   }
 
-  Future<void> _fetchVictimRequests() async {
+  Future<void> _fetchData() async {
     try {
       if (!mounted) return;
+      // Set loading to true
+      ref.read(criticalAlertsLoadingProvider.notifier).state = true;
       final ngoDocId = ref.read(ngoDasboardProvider).ngoDocId;
 
       if (ngoDocId == null) {
+        if (mounted) {
+          ref.read(criticalAlertsLoadingProvider.notifier).state = false;
+          pageMessage(
+            'Unable to fetch requests. Please re-login.',
+            context,
+            AppColors.error,
+          );
+        }
+        return;
+      }
+
+      // Fetch both victim requests and approved rescuers simultaneously
+      await Future.wait([
+        _fetchVictimRequests(ngoDocId),
+        _fetchApprovedRescuers(ngoDocId),
+      ]);
+
+      if (mounted) {
+        ref.read(criticalAlertsLoadingProvider.notifier).state = false;
+      }
+    } catch (e) {
+      if (mounted) {
+        ref.read(criticalAlertsLoadingProvider.notifier).state = false;
         pageMessage(
-          'Unable to fetch requests. Please re-login.',
+          'Error fetching data, please retry',
           context,
           AppColors.error,
         );
-        return;
+        pageNavigation(const NgoDashboard(), context);
       }
+    }
+  }
+
+  Future<void> _fetchVictimRequests(String ngoDocId) async {
+    try {
+      if (!mounted) return;
 
       // Fetch all requests for this NGO from Firestore
       final snapshot = await _ngoFirestore
@@ -62,11 +93,11 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
         if (data['latitude'] != null && data['longitude'] != null) {
           requests.add({
             'id': doc.id,
-            'address': data['address'] ?? 'Address not available',
+            'address': data['address'] ?? 'N/A',
             'latitude': data['latitude'] as double,
             'longitude': data['longitude'] as double,
-            'requestType': data['requestType'] ?? 'Unknown',
-            'severity': data['severity'] ?? 'Unknown',
+            'requestType': data['requestType'] ?? 'N/A',
+            'severity': data['severity'] ?? 'N/A',
           });
         }
       }
@@ -75,12 +106,57 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
         ref.read(victimRequestsProvider.notifier).state = requests;
       }
     } catch (e) {
-      pageMessage(
-        'Error fetching victim locations, please retry',
-        context,
-        AppColors.error,
-      );
-      pageNavigation(const NgoDashboard(), context);
+      rethrow;
+    }
+  }
+
+  Future<void> _fetchApprovedRescuers(String ngoDocId) async {
+    try {
+      // Fetch the NGO document to get rescuer-requests subcollection
+      final ngoDoc = await _ngoFirestore
+          .collection('ngo-info-database')
+          .doc(ngoDocId)
+          .get();
+
+      if (!ngoDoc.exists || !mounted) return;
+
+      // Fetch all documents from rescuer-requests subcollection
+      final rescuerRequestsSnapshot = await _ngoFirestore
+          .collection('ngo-info-database')
+          .doc(ngoDocId)
+          .collection('rescuer-requests')
+          .get();
+
+      if (!mounted) return;
+
+      final rescuers = <Map<String, dynamic>>[];
+
+      for (var rescuerDoc in rescuerRequestsSnapshot.docs) {
+        final rescuerData = rescuerDoc.data();
+        // Check if the rescuer is approved
+        if (rescuerData['status'] == 'approved') {
+          // Fetch the users subcollection to get count and details
+          // Get the first name and last name from rescuer data
+          final firstName = rescuerData['firstName'] ?? '';
+          final lastName = rescuerData['lastName'] ?? '';
+          final fullName = '$firstName $lastName'.trim();
+
+          rescuers.add({
+            'id': rescuerDoc.id,
+            'fullName': fullName.isEmpty ? 'N/A' : fullName,
+            'selectedService': rescuerData['selectedService'] ?? 'N/A',
+            'branchName': rescuerData['branchName'] ?? 'N/A',
+            'requestCount': rescuerData['requests'] ?? 0,
+            'online': rescuerData['online'] ?? false,
+          });
+        }
+      }
+
+      if (mounted) {
+        ref.read(approvedRescuersProvider.notifier).state = rescuers;
+      }
+    } catch (e) {
+      rethrow;
     }
   }
 
@@ -89,62 +165,124 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
     return Scaffold(
       backgroundColor: AppColors.softBackground,
       drawer: buildDrawer(context),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final isMobile = constraints.maxWidth < 600;
-            final isTablet =
-                constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
-            final mapHeight = constraints.maxHeight * 0.38;
+      body: Stack(
+        children: [
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isMobile = constraints.maxWidth < 600;
+                final isTablet =
+                    constraints.maxWidth >= 600 && constraints.maxWidth < 1024;
+                final mapHeight = constraints.maxHeight * 0.38;
 
-            return Column(
-              children: [
-                // Navigation Bar
-                Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceLight,
-                    border: Border.all(color: AppColors.borderColor, width: 1),
-                  ),
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isMobile ? AppSpacing.lg : AppSpacing.xxl,
-                    vertical: isMobile ? AppSpacing.md : AppSpacing.lg,
-                  ),
-                  child: const NavBar(),
-                ),
-
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.all(
-                      isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                return Column(
+                  children: [
+                    // Navigation Bar
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceLight,
+                        border: Border.all(
+                          color: AppColors.borderColor,
+                          width: 1,
+                        ),
+                      ),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                        vertical: isMobile ? AppSpacing.md : AppSpacing.lg,
+                      ),
+                      child: const NavBar(),
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildHeader(isMobile),
-                        SizedBox(
-                          height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
-                        ),
 
-                        // Map Card
-                        _buildMapCard(mapHeight, isMobile),
-                        SizedBox(
-                          height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.all(
+                          isMobile ? AppSpacing.lg : AppSpacing.xxl,
                         ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildHeader(isMobile),
+                            SizedBox(
+                              height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                            ),
 
-                        // Requests list
-                        Consumer(
-                          builder: (context, ref, child) {
-                            return _buildContent(isMobile, isTablet, ref);
-                          },
+                            // Map Card
+                            _buildMapCard(mapHeight, isMobile),
+                            SizedBox(
+                              height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                            ),
+
+                            // Approved Rescuers Header
+                            _buildApprovedRescuersHeader(isMobile),
+                            SizedBox(
+                              height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                            ),
+
+                            // Approved Rescuers Section
+                            Consumer(
+                              builder: (context, ref, child) {
+                                return _buildApprovedRescuersSection(
+                                  isMobile,
+                                  isTablet,
+                                  ref,
+                                );
+                              },
+                            ),
+                            SizedBox(
+                              height: isMobile
+                                  ? AppSpacing.xxl
+                                  : AppSpacing.xxxxl,
+                            ),
+
+                            // Victim Requests Section Header
+                            _buildVictimRequestsHeader(isMobile),
+                            SizedBox(
+                              height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                            ),
+
+                            // Requests list
+                            Consumer(
+                              builder: (context, ref, child) {
+                                return _buildVictimRequestsTable(
+                                  isMobile,
+                                  isTablet,
+                                  ref,
+                                );
+                              },
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          // Loading Overlay
+          Consumer(
+            builder: (context, ref, child) {
+              final isLoading = ref.watch(criticalAlertsLoadingProvider);
+              if (!isLoading) return const SizedBox.shrink();
+
+              return IgnorePointer(
+                child: Container(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 60,
+                      height: 60,
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryMaroon,
+                        strokeWidth: 4,
+                      ),
                     ),
                   ),
                 ),
-              ],
-            );
-          },
-        ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -210,6 +348,69 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                   'Monitor and respond to active victim requests',
                   style: TextStyle(
                     fontSize: isMobile ? 14 : 16,
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVictimRequestsHeader(bool isMobile) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.error.withValues(alpha: 0.05),
+            AppColors.accentRose.withValues(alpha: 0.02),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.error.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Emergency icon
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.error,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.emergency_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Victim Requests',
+                  style: TextStyle(
+                    fontSize: isMobile ? 20 : 24,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.darkCharcoal,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Active emergency requests requiring immediate attention',
+                  style: TextStyle(
+                    fontSize: isMobile ? 13 : 15,
                     color: AppColors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
@@ -302,39 +503,349 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
     );
   }
 
-  Widget _buildContent(bool isMobile, bool isTablet, WidgetRef ref) {
+  Widget _buildApprovedRescuersHeader(bool isMobile) {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.primaryMaroon.withValues(alpha: 0.05),
+            AppColors.accentRose.withValues(alpha: 0.02),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.primaryMaroon.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Rescuers icon
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primaryMaroon,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              Icons.people_alt_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Approved Rescuers',
+                  style: TextStyle(
+                    fontSize: isMobile ? 20 : 24,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.darkCharcoal,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Consumer(
+                  builder: (context, ref, child) {
+                    if (!mounted) return const SizedBox.shrink();
+                    final rescuers = ref.watch(approvedRescuersProvider);
+                    return Text(
+                      '${rescuers.length} active rescuer${rescuers.length != 1 ? 's' : ''} responding to emergencies',
+                      style: TextStyle(
+                        fontSize: isMobile ? 13 : 15,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildApprovedRescuersSection(
+    bool isMobile,
+    bool isTablet,
+    WidgetRef ref,
+  ) {
+    if (!mounted) return const SizedBox.shrink();
+    final rescuers = ref.watch(approvedRescuersProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Rescuers List/Table
+        if (rescuers.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.xxl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.person_off_outlined,
+                    size: 48,
+                    color: AppColors.textMuted,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'No approved rescuers found',
+                    style: AppText.subtitle.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else if (isMobile || isTablet)
+          _buildMobileRescuersList(rescuers, ref)
+        else
+          _buildWebRescuersTable(rescuers, ref),
+      ],
+    );
+  }
+
+  Widget _buildWebRescuersTable(
+    List<Map<String, dynamic>> rescuers,
+    WidgetRef ref,
+  ) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.darkCharcoal.withValues(alpha: 0.08),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Table(
+            columnWidths: const {
+              0: FlexColumnWidth(2.5),
+              1: FlexColumnWidth(2),
+              2: FlexColumnWidth(2),
+              3: FlexColumnWidth(1.5),
+            },
+            children: [
+              // Header Row
+              TableRow(
+                decoration: BoxDecoration(
+                  color: AppColors.primaryMaroon.withValues(alpha: 0.03),
+                  border: const Border(
+                    bottom: BorderSide(color: AppColors.borderLight, width: 1),
+                  ),
+                ),
+                children: [
+                  _tableHeaderCell('Rescuer Name'),
+                  _tableHeaderCell('Service Type'),
+                  _tableHeaderCell('Branch'),
+                  _tableHeaderCell('Requests', centered: true),
+                ],
+              ),
+              // Data Rows
+              ...rescuers.map((rescuer) {
+                final fullName = rescuer['fullName'];
+                final selectedService = rescuer['selectedService'];
+                final branchName = rescuer['branchName'];
+
+                return TableRow(
+                  decoration: BoxDecoration(
+                    color: AppColors.softBackground.withValues(alpha: 0.3),
+                    border: Border.all(color: AppColors.borderLight, width: 1),
+                  ),
+                  children: [
+                    // Name cell
+                    TableCell(
+                      verticalAlignment: TableCellVerticalAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xl,
+                          vertical: AppSpacing.lg,
+                        ),
+                        child: Text(
+                          fullName,
+                          style: AppText.fieldLabel.copyWith(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    // Service type cell
+                    TableCell(
+                      verticalAlignment: TableCellVerticalAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xl,
+                          vertical: AppSpacing.lg,
+                        ),
+                        child: Text(
+                          selectedService,
+                          style: AppText.fieldLabel.copyWith(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    // Branch cell
+                    TableCell(
+                      verticalAlignment: TableCellVerticalAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xl,
+                          vertical: AppSpacing.lg,
+                        ),
+                        child: Text(
+                          branchName,
+                          style: AppText.fieldLabel.copyWith(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    // Requests count cell
+                    TableCell(
+                      verticalAlignment: TableCellVerticalAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xl,
+                          vertical: AppSpacing.lg,
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${rescuer['requestCount'] ?? 0}',
+                            style: AppText.fieldLabel.copyWith(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileRescuersList(
+    List<Map<String, dynamic>> rescuers,
+    WidgetRef ref,
+  ) {
+    return Column(
+      children: rescuers
+          .map((rescuer) => _buildMobileRescuerCard(rescuer, ref))
+          .toList(),
+    );
+  }
+
+  Widget _buildMobileRescuerCard(Map<String, dynamic> rescuer, WidgetRef ref) {
+    final fullName = rescuer['fullName'];
+    final selectedService = rescuer['selectedService'];
+    final branchName = rescuer['branchName'];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.darkCharcoal.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _MobileInfoRow(label: 'Name', value: fullName),
+            const SizedBox(height: AppSpacing.sm),
+            _MobileInfoRow(
+              label: 'Requests',
+              value: rescuer['requestCount'].toString(),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            // Service and Branch info
+            _MobileInfoRow(label: 'Service', value: selectedService),
+            const SizedBox(height: AppSpacing.sm),
+            _MobileInfoRow(label: 'Branch', value: branchName),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVictimRequestsTable(
+    bool isMobile,
+    bool isTablet,
+    WidgetRef ref,
+  ) {
     if (!mounted) return const SizedBox.shrink();
     final victimRequests = ref.watch(victimRequestsProvider);
 
-    if (victimRequests.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xxxxl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.search_off_outlined,
-                size: 64,
-                color: AppColors.textMuted,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Requests content
+        if (victimRequests.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.xxxxl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.search_off_outlined,
+                    size: 64,
+                    color: AppColors.textMuted,
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    'No victim requests found',
+                    style: AppText.subtitle.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                'No victim requests found',
-                style: AppText.subtitle.copyWith(
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return isMobile || isTablet
-        ? _buildMobileRequestList(ref)
-        : _buildWebRequestTable(ref);
+            ),
+          )
+        else if (isMobile || isTablet)
+          _buildMobileRequestList(ref)
+        else
+          _buildWebRequestTable(ref),
+      ],
+    );
   }
 
   Widget _buildWebRequestTable(WidgetRef ref) {
@@ -382,14 +893,12 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                 ],
               ),
               // Data Rows
-              ...victimRequests.asMap().entries.map((entry) {
-                final request = entry.value;
-                final requestId = request['id'];
-                final address = request['address'];
-                final requestType = request['requestType'];
-                final severity = request['severity'];
+              ...victimRequests.map((victim) {
+                final requestId = victim['id'];
+                final address = victim['address'];
+                final requestType = victim['requestType'];
+                final severity = victim['severity'];
                 final isFocused = focusedLocation == requestId;
-                final isHighRisk = severity == 'High Risk';
 
                 return TableRow(
                   decoration: BoxDecoration(
@@ -405,30 +914,14 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                           horizontal: AppSpacing.xl,
                           vertical: AppSpacing.lg,
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.warning_amber_rounded,
-                              size: 16,
-                              color: isHighRisk
-                                  ? AppColors.error
-                                  : Colors.orange,
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Text(
-                                severity,
-                                style: AppText.fieldLabel.copyWith(
-                                  fontSize: 12,
-                                  color: isHighRisk
-                                      ? AppColors.error
-                                      : Colors.orange,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          severity,
+                          style: AppText.fieldLabel.copyWith(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
@@ -485,11 +978,11 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                               isFocused
                                   ? Icons.zoom_out_map
                                   : Icons.my_location,
-                              color: AppColors.primaryMaroon,
+                              color: AppColors.textSecondary,
                               size: 20,
                             ),
                             onPressed: () =>
-                                _handleFocus(requestId, request, isFocused),
+                                _handleFocus(requestId, victim, isFocused),
                           ),
                         ),
                       ),
@@ -519,13 +1012,12 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
     final address = request['address'];
     final requestType = request['requestType'];
     final severity = request['severity'];
-    final isHighRisk = severity == 'High Risk';
-    if (!mounted) return const SizedBox.shrink();
+
     final focusedLocation = ref.watch(focusedLocationProvider);
     final isFocused = focusedLocation == requestId;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: AppSpacing.lg),
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -537,70 +1029,31 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Card header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.md,
-              AppSpacing.md,
-              AppSpacing.md,
-              0,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.warning_amber_rounded,
-                  size: 18,
-                  color: isHighRisk ? AppColors.error : Colors.orange,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    '$severity Alert',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: isHighRisk ? AppColors.error : Colors.orange,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _MobileInfoRow(label: 'Severity', value: severity),
+            const SizedBox(height: AppSpacing.sm),
 
-          // Card content rows
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              children: [
-                _MobileInfoRow(label: 'Address', value: address),
-                const SizedBox(height: AppSpacing.md),
-                _MobileInfoRow(label: 'Type', value: requestType),
-                const SizedBox(height: AppSpacing.lg),
+            _MobileInfoRow(label: 'Type', value: requestType),
+            const SizedBox(height: AppSpacing.sm),
 
-                // Action row
-                Row(
-                  children: [
-                    Expanded(
-                      child: _MobileActionButton(
-                        label: isFocused ? 'Zoom Out' : 'Focus',
-                        icon: isFocused
-                            ? Icons.zoom_out_map
-                            : Icons.my_location,
-                        color: AppColors.primaryMaroon,
-                        onPressed: () =>
-                            _handleFocus(requestId, request, isFocused),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+            _MobileInfoRow(label: 'Address', value: address),
+            const SizedBox(height: AppSpacing.lg),
+
+            SizedBox(
+              width: double.infinity,
+              child: _MobileActionButton(
+                label: isFocused ? 'Zoom Out' : 'Focus',
+                icon: isFocused ? Icons.zoom_out_map : Icons.my_location,
+                color: AppColors.primaryMaroon,
+                onPressed: () => _handleFocus(requestId, request, isFocused),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

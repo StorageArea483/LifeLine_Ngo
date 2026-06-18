@@ -28,12 +28,16 @@ final victimLocationProvider = StreamProvider.family
 final victimRequestsProvider =
     StateProvider.autoDispose<List<Map<String, dynamic>>>((ref) => []);
 
-// Track which items are expanded
-final expandedItemsProvider = StateProvider.autoDispose<Set<String>>(
-  (ref) => {},
-);
-
 // Track the currently focused location (null means show all)
 final focusedLocationProvider = StateProvider.autoDispose<String?>(
   (ref) => null,
+);
+
+// Provider for storing approved rescuers list
+final approvedRescuersProvider =
+    StateProvider.autoDispose<List<Map<String, dynamic>>>((ref) => []);
+
+// Loading state provider for critical alerts page
+final criticalAlertsLoadingProvider = StateProvider.autoDispose<bool>(
+  (ref) => true,
 );
