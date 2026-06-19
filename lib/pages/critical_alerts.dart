@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:life_line_ngo/pages/ngo_dashboard.dart';
 import 'package:life_line_ngo/providers/critical_alerts_provider.dart';
 import 'package:life_line_ngo/providers/ngo_dasboard_provider.dart';
@@ -23,11 +24,22 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
   final MapController _mapController = MapController();
   final FirebaseFirestore _ngoFirestore = FirebaseFirestore.instance;
   StreamSubscription? _rescuerSubscription;
+  FirebaseFirestore? _rescuerFirestore;
+
+  // life-line-rescuer database credentials
+  static const FirebaseOptions _rescuerFirebaseOptions = FirebaseOptions(
+    apiKey: 'AIzaSyDs-CoAc_fqrB-3BMl4N7pYSavyNV72zUQ',
+    appId: '1:494066243537:android:ffdb36137d6d3cb1a4b2f0',
+    messagingSenderId: '494066243537',
+    projectId: 'life-line-rescuer-b1f1c',
+    storageBucket: 'life-line-rescuer-b1f1c.firebasestorage.app',
+  );
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeRescuerFirebase();
       _fetchData();
     });
   }
@@ -36,6 +48,86 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
   void dispose() {
     _rescuerSubscription?.cancel();
     super.dispose();
+  }
+
+  Future<void> _initializeRescuerFirebase() async {
+    try {
+      FirebaseApp rescuerApp;
+      try {
+        rescuerApp = Firebase.app('life-line-rescuer');
+      } catch (_) {
+        rescuerApp = await Firebase.initializeApp(
+          name: 'life-line-rescuer',
+          options: _rescuerFirebaseOptions,
+        );
+      }
+      _rescuerFirestore = FirebaseFirestore.instanceFor(app: rescuerApp);
+    } catch (e) {
+      if (mounted) {
+        pageMessage(
+          'Failed to initialize rescuer database',
+          context,
+          AppColors.error,
+        );
+      }
+    }
+  }
+
+  Future<void> _submitAssignments() async {
+    try {
+      if (!mounted) return;
+      final ngoDocId = ref.read(ngoDasboardProvider).ngoDocId;
+      ref.read(criticalAlertsLoadingProvider.notifier).state = true;
+
+      if (_rescuerFirestore == null) {
+        throw Exception('Rescuer database not initialized');
+      }
+
+      final assignedRescuers = ref.read(assignedRescuersProvider);
+
+      if (assignedRescuers.isEmpty) {
+        throw Exception('No assignments found');
+      }
+
+      for (final assignment in assignedRescuers.entries) {
+        final rescuerId = assignment.value;
+
+        await _ngoFirestore
+            .collection('ngo-info-database')
+            .doc(ngoDocId)
+            .collection('rescuer-requests')
+            .doc(rescuerId)
+            .set({
+              'assigned': assignment.key,
+              'requests': FieldValue.increment(1),
+            }, SetOptions(merge: true));
+
+        await _rescuerFirestore!.collection('users').doc(rescuerId).set({
+          'assigned': assignment.key,
+          'requests': FieldValue.increment(1),
+        }, SetOptions(merge: true));
+      }
+
+      if (mounted) {
+        ref.read(criticalAlertsLoadingProvider.notifier).state = false;
+        ref.read(assignedRescuersProvider.notifier).state = {};
+        pageMessage(
+          'Assignments submitted successfully.',
+          context,
+          AppColors.success,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ref.read(criticalAlertsLoadingProvider.notifier).state = false;
+
+        pageMessage(
+          'Error submitting assignments: $e',
+          context,
+          AppColors.error,
+        );
+      }
+    }
   }
 
   Future<void> _fetchData() async {
@@ -1260,14 +1352,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
             constraints: const BoxConstraints(maxWidth: 300),
             child: ElevatedButton.icon(
               onPressed: assignedRescuers.isNotEmpty
-                  ? () {
-                      // Placeholder action — backend save logic comes later
-                      pageMessage(
-                        'Assignments submitted successfully.',
-                        context,
-                        AppColors.primaryMaroon,
-                      );
-                    }
+                  ? () => _submitAssignments()
                   : null,
               icon: const Icon(Icons.check_circle_outline, size: 20),
               label: const Text(
