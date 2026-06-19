@@ -25,6 +25,7 @@ final victimLocationProvider = StreamProvider.family
       });
     });
 
+// Provider for storing victims list
 final victimRequestsProvider =
     StateProvider.autoDispose<List<Map<String, dynamic>>>((ref) => []);
 
@@ -41,3 +42,8 @@ final approvedRescuersProvider =
 final criticalAlertsLoadingProvider = StateProvider.autoDispose<bool>(
   (ref) => true,
 );
+
+// provider used to hold the assigned rescuers data
+final assignedRescuersProvider = StateProvider<Map<String, String>>((ref) {
+  return {};
+});

@@ -22,6 +22,7 @@ class CriticalAlerts extends ConsumerStatefulWidget {
 class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
   final MapController _mapController = MapController();
   final FirebaseFirestore _ngoFirestore = FirebaseFirestore.instance;
+  StreamSubscription? _rescuerSubscription;
 
   @override
   void initState() {
@@ -29,6 +30,12 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchData();
     });
+  }
+
+  @override
+  void dispose() {
+    _rescuerSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _fetchData() async {
@@ -50,11 +57,11 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
         return;
       }
 
-      // Fetch both victim requests and approved rescuers simultaneously
-      await Future.wait([
-        _fetchVictimRequests(ngoDocId),
-        _fetchApprovedRescuers(ngoDocId),
-      ]);
+      // Fetch victim requests once
+      await _fetchVictimRequests(ngoDocId);
+
+      // Set up stream listener for approved rescuers
+      _listenToApprovedRescuers(ngoDocId);
 
       if (mounted) {
         ref.read(criticalAlertsLoadingProvider.notifier).state = false;
@@ -110,53 +117,56 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
     }
   }
 
-  Future<void> _fetchApprovedRescuers(String ngoDocId) async {
+  void _listenToApprovedRescuers(String ngoDocId) {
     try {
-      // Fetch the NGO document to get rescuer-requests subcollection
-      final ngoDoc = await _ngoFirestore
-          .collection('ngo-info-database')
-          .doc(ngoDocId)
-          .get();
+      if (!mounted) return;
 
-      if (!ngoDoc.exists || !mounted) return;
+      // Cancel existing subscription before reassigning
+      _rescuerSubscription?.cancel();
 
-      // Fetch all documents from rescuer-requests subcollection
-      final rescuerRequestsSnapshot = await _ngoFirestore
+      // Set up stream listener for rescuer-requests subcollection
+      _rescuerSubscription = _ngoFirestore
           .collection('ngo-info-database')
           .doc(ngoDocId)
           .collection('rescuer-requests')
-          .get();
+          .snapshots()
+          .listen((snapshot) {
+            if (!mounted) return;
 
-      if (!mounted) return;
+            final rescuers = <Map<String, dynamic>>[];
 
-      final rescuers = <Map<String, dynamic>>[];
+            for (var rescuerDoc in snapshot.docs) {
+              final rescuerData = rescuerDoc.data();
+              // Check if the rescuer is approved
+              if (rescuerData['status'] == 'approved') {
+                // Get the first name and last name from rescuer data
+                final firstName = rescuerData['firstName'] ?? '';
+                final lastName = rescuerData['lastName'] ?? '';
+                final fullName = '$firstName $lastName'.trim();
 
-      for (var rescuerDoc in rescuerRequestsSnapshot.docs) {
-        final rescuerData = rescuerDoc.data();
-        // Check if the rescuer is approved
-        if (rescuerData['status'] == 'approved') {
-          // Fetch the users subcollection to get count and details
-          // Get the first name and last name from rescuer data
-          final firstName = rescuerData['firstName'] ?? '';
-          final lastName = rescuerData['lastName'] ?? '';
-          final fullName = '$firstName $lastName'.trim();
+                rescuers.add({
+                  'id': rescuerDoc.id,
+                  'fullName': fullName.isEmpty ? 'N/A' : fullName,
+                  'selectedService': rescuerData['selectedService'] ?? 'N/A',
+                  'branchName': rescuerData['branchName'] ?? 'N/A',
+                  'requestCount': rescuerData['requests'] ?? 0,
+                  'online': rescuerData['online'] ?? false,
+                });
+              }
+            }
 
-          rescuers.add({
-            'id': rescuerDoc.id,
-            'fullName': fullName.isEmpty ? 'N/A' : fullName,
-            'selectedService': rescuerData['selectedService'] ?? 'N/A',
-            'branchName': rescuerData['branchName'] ?? 'N/A',
-            'requestCount': rescuerData['requests'] ?? 0,
-            'online': rescuerData['online'] ?? false,
+            if (mounted) {
+              ref.read(approvedRescuersProvider.notifier).state = rescuers;
+            }
           });
-        }
-      }
-
-      if (mounted) {
-        ref.read(approvedRescuersProvider.notifier).state = rescuers;
-      }
     } catch (e) {
-      rethrow;
+      if (mounted) {
+        pageMessage(
+          'Error listening to rescuers, please retry',
+          context,
+          AppColors.error,
+        );
+      }
     }
   }
 
@@ -250,6 +260,12 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                                 );
                               },
                             ),
+
+                            SizedBox(
+                              height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                            ),
+                            // Submit button
+                            _buildSubmitAssignmentsButton(),
                           ],
                         ),
                       ),
@@ -652,6 +668,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                   ),
                 ),
                 children: [
+                  _tableHeaderCell('Online Status'),
                   _tableHeaderCell('Rescuer Name'),
                   _tableHeaderCell('Service Type'),
                   _tableHeaderCell('Branch'),
@@ -663,6 +680,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                 final fullName = rescuer['fullName'];
                 final selectedService = rescuer['selectedService'];
                 final branchName = rescuer['branchName'];
+                final status = rescuer['online'];
 
                 return TableRow(
                   decoration: BoxDecoration(
@@ -670,6 +688,23 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                     border: Border.all(color: AppColors.borderLight, width: 1),
                   ),
                   children: [
+                    // Online status cell
+                    TableCell(
+                      verticalAlignment: TableCellVerticalAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xl,
+                          vertical: AppSpacing.lg,
+                        ),
+                        child: Text(
+                          status ? 'Rescuer is Online' : 'Rescuer is Offline',
+                          style: AppText.fieldLabel.copyWith(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
                     // Name cell
                     TableCell(
                       verticalAlignment: TableCellVerticalAlignment.middle,
@@ -768,6 +803,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
     final fullName = rescuer['fullName'];
     final selectedService = rescuer['selectedService'];
     final branchName = rescuer['branchName'];
+    final status = rescuer['online'];
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
@@ -787,6 +823,11 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _MobileInfoRow(
+              label: 'Online',
+              value: status ? 'Rescuer is Online' : 'Rescuer is Offline',
+            ),
+            const SizedBox(height: AppSpacing.sm),
             _MobileInfoRow(label: 'Name', value: fullName),
             const SizedBox(height: AppSpacing.sm),
             _MobileInfoRow(
@@ -871,10 +912,11 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
         children: [
           Table(
             columnWidths: const {
-              0: FlexColumnWidth(2),
+              0: FlexColumnWidth(1.5),
               1: FlexColumnWidth(3),
               2: FlexColumnWidth(2),
-              3: FlexColumnWidth(1.5),
+              3: FlexColumnWidth(2.5),
+              4: FlexColumnWidth(1.5),
             },
             children: [
               // Header Row
@@ -889,6 +931,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                   _tableHeaderCell('Severity'),
                   _tableHeaderCell('Address'),
                   _tableHeaderCell('Emergency Type'),
+                  _tableHeaderCell('Assign Rescuer'),
                   _tableHeaderCell('Focus', centered: true),
                 ],
               ),
@@ -959,6 +1002,77 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                             color: AppColors.textSecondary,
                           ),
                           overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    // Assign Rescuer dropdown cell
+                    TableCell(
+                      verticalAlignment: TableCellVerticalAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.xl,
+                          vertical: AppSpacing.lg,
+                        ),
+                        child: Consumer(
+                          builder: (context, ref, child) {
+                            final assignedRescuers = ref.watch(
+                              assignedRescuersProvider,
+                            );
+                            final approvedRescuers = ref.watch(
+                              approvedRescuersProvider,
+                            );
+
+                            final selectedRescuerId =
+                                assignedRescuers[requestId];
+
+                            // A rescuer is available if they're not assigned to anyone,
+                            // or if they're the one already assigned to this request.
+                            final availableRescuers = approvedRescuers.where((
+                              rescuer,
+                            ) {
+                              final rescuerId = rescuer['id'];
+                              final isAssignedToSomeone = assignedRescuers
+                                  .containsValue(rescuerId);
+                              final isAssignedToThisRequest =
+                                  rescuerId == selectedRescuerId;
+                              return !isAssignedToSomeone ||
+                                  isAssignedToThisRequest;
+                            }).toList();
+
+                            return DropdownButton<String>(
+                              value: selectedRescuerId,
+                              hint: Text(
+                                'Select Rescuer',
+                                style: AppText.fieldLabel.copyWith(
+                                  fontSize: 12,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                              isExpanded: true,
+                              underline: const SizedBox.shrink(),
+                              items: availableRescuers.map((rescuer) {
+                                return DropdownMenuItem<String>(
+                                  value: rescuer['id'],
+                                  child: Text(
+                                    rescuer['fullName'],
+                                    style: AppText.fieldLabel.copyWith(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (String? newValue) {
+                                if (newValue == null) return;
+                                ref
+                                    .read(assignedRescuersProvider.notifier)
+                                    .update((state) {
+                                      return {...state, requestId: newValue};
+                                    });
+                              },
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -1043,6 +1157,84 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
             _MobileInfoRow(label: 'Address', value: address),
             const SizedBox(height: AppSpacing.lg),
 
+            // Assign Rescuer Dropdown
+            Consumer(
+              builder: (context, ref, child) {
+                if (!mounted) return const SizedBox.shrink();
+                final assignedRescuers = ref.watch(assignedRescuersProvider);
+
+                if (!mounted) return const SizedBox.shrink();
+                final approvedRescuers = ref.watch(approvedRescuersProvider);
+
+                // Get list of available rescuers (not already assigned)
+                final availableRescuers = approvedRescuers.where((rescuer) {
+                  final rescuerId = rescuer['id'];
+                  // Include if not assigned, or if assigned to this victim
+                  return !assignedRescuers.containsValue(rescuerId) ||
+                      assignedRescuers[requestId] == rescuerId;
+                }).toList();
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Assign Rescuer',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: AppColors.borderLight),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButton<String>(
+                        value: assignedRescuers[requestId],
+                        hint: const Text(
+                          'Select Rescuer',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: AppColors.textMuted,
+                          ),
+                        ),
+                        isExpanded: true,
+                        underline: const SizedBox.shrink(),
+                        items: availableRescuers.map((rescuer) {
+                          return DropdownMenuItem<String>(
+                            value: rescuer['id'],
+                            child: Text(
+                              rescuer['fullName'],
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: AppColors.darkCharcoal,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          if (newValue != null) {
+                            ref.read(assignedRescuersProvider.notifier).update((
+                              state,
+                            ) {
+                              return {...state, requestId: newValue};
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: AppSpacing.lg),
+
             SizedBox(
               width: double.infinity,
               child: _MobileActionButton(
@@ -1055,6 +1247,53 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSubmitAssignmentsButton() {
+    return Consumer(
+      builder: (context, ref, child) {
+        final assignedRescuers = ref.watch(assignedRescuersProvider);
+
+        return Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 300),
+            child: ElevatedButton.icon(
+              onPressed: assignedRescuers.isNotEmpty
+                  ? () {
+                      // Placeholder action — backend save logic comes later
+                      pageMessage(
+                        'Assignments submitted successfully.',
+                        context,
+                        AppColors.primaryMaroon,
+                      );
+                    }
+                  : null,
+              icon: const Icon(Icons.check_circle_outline, size: 20),
+              label: const Text(
+                'Submit Assignments',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: assignedRescuers.isNotEmpty
+                    ? AppColors.primaryMaroon
+                    : AppColors.borderLight,
+                foregroundColor: assignedRescuers.isNotEmpty
+                    ? Colors.white
+                    : AppColors.textMuted,
+                elevation: assignedRescuers.isNotEmpty ? 2 : 0,
+                padding: const EdgeInsets.symmetric(
+                  vertical: AppSpacing.lg,
+                  horizontal: AppSpacing.xl,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
