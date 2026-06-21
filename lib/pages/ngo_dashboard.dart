@@ -11,6 +11,7 @@ import 'package:life_line_ngo/pages/show_rescuer_info.dart';
 import 'package:life_line_ngo/providers/ngo_dasboard_provider.dart';
 import 'package:life_line_ngo/pages/show_victim_info.dart';
 import 'package:life_line_ngo/styles/styles.dart';
+import 'package:life_line_ngo/widgets/global/page_loading.dart';
 import 'package:life_line_ngo/widgets/global/page_message.dart';
 import 'package:life_line_ngo/widgets/global/page_navigation.dart';
 import 'package:life_line_ngo/widgets/nav_bar.dart';
@@ -290,21 +291,7 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
                   ngoDasboardProvider.select((v) => v.isLoading),
                 );
                 if (!isLoading) return const SizedBox.shrink();
-                return IgnorePointer(
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    child: const Center(
-                      child: SizedBox(
-                        width: 60,
-                        height: 60,
-                        child: CircularProgressIndicator(
-                          color: AppColors.primaryMaroon,
-                          strokeWidth: 4,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
+                return pageLoading(context);
               },
             ),
           ],

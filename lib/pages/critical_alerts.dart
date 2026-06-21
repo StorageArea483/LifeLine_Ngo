@@ -9,6 +9,7 @@ import 'package:life_line_ngo/pages/ngo_dashboard.dart';
 import 'package:life_line_ngo/providers/critical_alerts_provider.dart';
 import 'package:life_line_ngo/providers/ngo_dasboard_provider.dart';
 import 'package:life_line_ngo/styles/styles.dart';
+import 'package:life_line_ngo/widgets/global/page_loading.dart';
 import 'package:life_line_ngo/widgets/global/page_message.dart';
 import 'package:life_line_ngo/widgets/global/page_navigation.dart';
 import 'package:life_line_ngo/widgets/nav_bar.dart';
@@ -77,35 +78,71 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
     try {
       if (!mounted) return;
       final ngoDocId = ref.read(ngoDasboardProvider).ngoDocId;
+      if (!mounted) return;
       ref.read(criticalAlertsLoadingProvider.notifier).state = true;
 
       if (_rescuerFirestore == null) {
         throw Exception('Rescuer database not initialized');
       }
+      if (ngoDocId == null) {
+        throw Exception('NGO ID not found');
+      }
 
+      if (!mounted) return;
       final assignedRescuers = ref.read(assignedRescuersProvider);
-
       if (assignedRescuers.isEmpty) {
         throw Exception('No assignments found');
       }
 
+      if (!mounted) return;
+      final victimRequests = ref.read(victimRequestsProvider);
+
+      // Group assignments by rescuer with severity
+      final rescuerAssignments = <String, Map<String, String>>{};
+
       for (final assignment in assignedRescuers.entries) {
+        final victimId = assignment.key;
         final rescuerId = assignment.value;
 
-        await _ngoFirestore
-            .collection('ngo-info-database')
-            .doc(ngoDocId)
-            .collection('rescuer-requests')
-            .doc(rescuerId)
-            .set({
-              'assigned': assignment.key,
-              'requests': FieldValue.increment(1),
-            }, SetOptions(merge: true));
+        // Get the victim's severity
+        final victim = victimRequests.firstWhere(
+          (v) => v['id'] == victimId,
+          orElse: () => {'severity': 'N/A'},
+        );
+        final severity = victim['severity'] ?? 'N/A';
 
-        await _rescuerFirestore!.collection('users').doc(rescuerId).set({
-          'assigned': assignment.key,
-          'requests': FieldValue.increment(1),
-        }, SetOptions(merge: true));
+        // Create or update the rescuer's assignment map
+        if (!rescuerAssignments.containsKey(rescuerId)) {
+          rescuerAssignments[rescuerId] = {};
+        }
+        // Add victim ID as key and severity as value to the map
+        rescuerAssignments[rescuerId]![victimId] = severity;
+      }
+
+      // Update each rescuer in both databases
+      for (final entry in rescuerAssignments.entries) {
+        final rescuerId = entry.key;
+        final assignmentsMap = entry.value;
+        final assignmentCount = assignmentsMap.length;
+
+        Future.wait([
+          // Update NGO database
+          _ngoFirestore
+              .collection('ngo-info-database')
+              .doc(ngoDocId)
+              .collection('rescuer-requests')
+              .doc(rescuerId)
+              .set({
+                'assigned': assignmentsMap,
+                'requests': assignmentCount,
+              }, SetOptions(merge: true)),
+
+          // Update Rescuer database
+          _rescuerFirestore!.collection('users').doc(rescuerId).set({
+            'assigned': assignmentsMap,
+            'requests': assignmentCount,
+          }, SetOptions(merge: true)),
+        ]);
       }
 
       if (mounted) {
@@ -120,7 +157,6 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
     } catch (e) {
       if (mounted) {
         ref.read(criticalAlertsLoadingProvider.notifier).state = false;
-
         pageMessage(
           'Error submitting assignments: $e',
           context,
@@ -135,6 +171,8 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
       if (!mounted) return;
       // Set loading to true
       ref.read(criticalAlertsLoadingProvider.notifier).state = true;
+
+      if (!mounted) return;
       final ngoDocId = ref.read(ngoDasboardProvider).ngoDocId;
 
       if (ngoDocId == null) {
@@ -173,21 +211,16 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
 
   Future<void> _fetchVictimRequests(String ngoDocId) async {
     try {
-      if (!mounted) return;
-
       // Fetch all requests for this NGO from Firestore
       final snapshot = await _ngoFirestore
           .collection('requests')
           .where('ngoId', isEqualTo: ngoDocId)
           .get();
 
-      if (!mounted) return;
-
       final requests = <Map<String, dynamic>>[];
 
       for (var doc in snapshot.docs) {
         final data = doc.data();
-
         // Only include requests with valid latitude and longitude
         if (data['latitude'] != null && data['longitude'] != null) {
           requests.add({
@@ -211,8 +244,6 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
 
   void _listenToApprovedRescuers(String ngoDocId) {
     try {
-      if (!mounted) return;
-
       // Cancel existing subscription before reassigning
       _rescuerSubscription?.cancel();
 
@@ -229,6 +260,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
 
             for (var rescuerDoc in snapshot.docs) {
               final rescuerData = rescuerDoc.data();
+
               // Check if the rescuer is approved
               if (rescuerData['status'] == 'approved') {
                 // Get the first name and last name from rescuer data
@@ -252,13 +284,11 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
             }
           });
     } catch (e) {
-      if (mounted) {
-        pageMessage(
-          'Error listening to rescuers, please retry',
-          context,
-          AppColors.error,
-        );
-      }
+      pageMessage(
+        'Error listening to rescuers, please retry',
+        context,
+        AppColors.error,
+      );
     }
   }
 
@@ -294,7 +324,6 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                       ),
                       child: const NavBar(),
                     ),
-
                     Expanded(
                       child: SingleChildScrollView(
                         padding: EdgeInsets.all(
@@ -307,19 +336,16 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                             SizedBox(
                               height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
                             ),
-
                             // Map Card
                             _buildMapCard(mapHeight, isMobile),
                             SizedBox(
                               height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
                             ),
-
                             // Approved Rescuers Header
                             _buildApprovedRescuersHeader(isMobile),
                             SizedBox(
                               height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
                             ),
-
                             // Approved Rescuers Section
                             Consumer(
                               builder: (context, ref, child) {
@@ -335,13 +361,11 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                                   ? AppSpacing.xxl
                                   : AppSpacing.xxxxl,
                             ),
-
                             // Victim Requests Section Header
                             _buildVictimRequestsHeader(isMobile),
                             SizedBox(
                               height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
                             ),
-
                             // Requests list
                             Consumer(
                               builder: (context, ref, child) {
@@ -352,7 +376,6 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                                 );
                               },
                             ),
-
                             SizedBox(
                               height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
                             ),
@@ -370,24 +393,11 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
           // Loading Overlay
           Consumer(
             builder: (context, ref, child) {
+              if (!mounted) return const SizedBox.shrink();
               final isLoading = ref.watch(criticalAlertsLoadingProvider);
               if (!isLoading) return const SizedBox.shrink();
 
-              return IgnorePointer(
-                child: Container(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  child: const Center(
-                    child: SizedBox(
-                      width: 60,
-                      height: 60,
-                      child: CircularProgressIndicator(
-                        color: AppColors.primaryMaroon,
-                        strokeWidth: 4,
-                      ),
-                    ),
-                  ),
-                ),
-              );
+              return pageLoading(context);
             },
           ),
         ],
@@ -574,6 +584,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                   builder: (context, ref, child) {
                     if (!mounted) return const SizedBox.shrink();
                     final victimRequests = ref.watch(victimRequestsProvider);
+
                     return MarkerLayer(
                       markers: victimRequests.map((request) {
                         final requestId = request['id'];
@@ -589,6 +600,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                           error: (_, __) =>
                               LatLng(request['latitude'], request['longitude']),
                         );
+
                         return Marker(
                           point: location,
                           width: 40,
@@ -1007,7 +1019,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
               0: FlexColumnWidth(1.5),
               1: FlexColumnWidth(3),
               2: FlexColumnWidth(2),
-              3: FlexColumnWidth(2.5),
+              3: FlexColumnWidth(1.3),
               4: FlexColumnWidth(1.5),
             },
             children: [
@@ -1107,32 +1119,18 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                         ),
                         child: Consumer(
                           builder: (context, ref, child) {
+                            if (!mounted) return const SizedBox.shrink();
                             final assignedRescuers = ref.watch(
                               assignedRescuersProvider,
                             );
+                            if (!mounted) return const SizedBox.shrink();
                             final approvedRescuers = ref.watch(
                               approvedRescuersProvider,
                             );
-
-                            final selectedRescuerId =
-                                assignedRescuers[requestId];
-
-                            // A rescuer is available if they're not assigned to anyone,
-                            // or if they're the one already assigned to this request.
-                            final availableRescuers = approvedRescuers.where((
-                              rescuer,
-                            ) {
-                              final rescuerId = rescuer['id'];
-                              final isAssignedToSomeone = assignedRescuers
-                                  .containsValue(rescuerId);
-                              final isAssignedToThisRequest =
-                                  rescuerId == selectedRescuerId;
-                              return !isAssignedToSomeone ||
-                                  isAssignedToThisRequest;
-                            }).toList();
+                            final availableRescuers = approvedRescuers.toList();
 
                             return DropdownButton<String>(
-                              value: selectedRescuerId,
+                              value: assignedRescuers[requestId],
                               hint: Text(
                                 'Select Rescuer',
                                 style: AppText.fieldLabel.copyWith(
@@ -1142,25 +1140,48 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                               ),
                               isExpanded: true,
                               underline: const SizedBox.shrink(),
-                              items: availableRescuers.map((rescuer) {
-                                return DropdownMenuItem<String>(
-                                  value: rescuer['id'],
-                                  child: Text(
-                                    rescuer['fullName'],
-                                    style: AppText.fieldLabel.copyWith(
-                                      fontSize: 12,
-                                      color: AppColors.textSecondary,
+                              items: [
+                                // Add "None" option to unselect
+                                if (assignedRescuers[requestId] != null)
+                                  DropdownMenuItem<String>(
+                                    value: null,
+                                    child: Text(
+                                      'None (Clear Assignment)',
+                                      style: AppText.fieldLabel.copyWith(
+                                        fontSize: 12,
+                                        color: AppColors.error,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                );
-                              }).toList(),
+                                ...availableRescuers.map((rescuer) {
+                                  return DropdownMenuItem<String>(
+                                    value: rescuer['id'],
+                                    child: Text(
+                                      rescuer['fullName'],
+                                      style: AppText.fieldLabel.copyWith(
+                                        fontSize: 12,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  );
+                                }),
+                              ],
                               onChanged: (String? newValue) {
-                                if (newValue == null) return;
+                                if (!mounted) return;
                                 ref
                                     .read(assignedRescuersProvider.notifier)
                                     .update((state) {
-                                      return {...state, requestId: newValue};
+                                      final newState = {...state};
+                                      if (newValue == null) {
+                                        // Remove assignment
+                                        newState.remove(requestId);
+                                      } else {
+                                        // Add or update assignment
+                                        newState[requestId] = newValue;
+                                      }
+                                      return newState;
                                     });
                               },
                             );
@@ -1206,6 +1227,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
   Widget _buildMobileRequestList(WidgetRef ref) {
     if (!mounted) return const SizedBox.shrink();
     final victimRequests = ref.watch(victimRequestsProvider);
+
     return Column(
       children: victimRequests
           .map((request) => _buildMobileCard(request, ref))
@@ -1218,7 +1240,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
     final address = request['address'];
     final requestType = request['requestType'];
     final severity = request['severity'];
-
+    if (!mounted) return const SizedBox.shrink();
     final focusedLocation = ref.watch(focusedLocationProvider);
     final isFocused = focusedLocation == requestId;
 
@@ -1242,29 +1264,19 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
           children: [
             _MobileInfoRow(label: 'Severity', value: severity),
             const SizedBox(height: AppSpacing.sm),
-
             _MobileInfoRow(label: 'Type', value: requestType),
             const SizedBox(height: AppSpacing.sm),
-
             _MobileInfoRow(label: 'Address', value: address),
             const SizedBox(height: AppSpacing.lg),
-
             // Assign Rescuer Dropdown
             Consumer(
               builder: (context, ref, child) {
                 if (!mounted) return const SizedBox.shrink();
                 final assignedRescuers = ref.watch(assignedRescuersProvider);
-
                 if (!mounted) return const SizedBox.shrink();
                 final approvedRescuers = ref.watch(approvedRescuersProvider);
-
-                // Get list of available rescuers (not already assigned)
-                final availableRescuers = approvedRescuers.where((rescuer) {
-                  final rescuerId = rescuer['id'];
-                  // Include if not assigned, or if assigned to this victim
-                  return !assignedRescuers.containsValue(rescuerId) ||
-                      assignedRescuers[requestId] == rescuerId;
-                }).toList();
+                // Get list of all available rescuers (all can be assigned)
+                final availableRescuers = approvedRescuers.toList();
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1297,27 +1309,49 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                         ),
                         isExpanded: true,
                         underline: const SizedBox.shrink(),
-                        items: availableRescuers.map((rescuer) {
-                          return DropdownMenuItem<String>(
-                            value: rescuer['id'],
-                            child: Text(
-                              rescuer['fullName'],
-                              style: const TextStyle(
-                                fontSize: 14,
-                                color: AppColors.darkCharcoal,
+                        items: [
+                          // Add "None" option to unselect
+                          if (assignedRescuers[requestId] != null)
+                            const DropdownMenuItem<String>(
+                              value: null,
+                              child: Text(
+                                'None (Clear Assignment)',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.error,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
-                          );
-                        }).toList(),
+                          ...availableRescuers.map((rescuer) {
+                            return DropdownMenuItem<String>(
+                              value: rescuer['id'],
+                              child: Text(
+                                rescuer['fullName'],
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  color: AppColors.darkCharcoal,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }),
+                        ],
                         onChanged: (String? newValue) {
-                          if (newValue != null) {
-                            ref.read(assignedRescuersProvider.notifier).update((
-                              state,
-                            ) {
-                              return {...state, requestId: newValue};
-                            });
-                          }
+                          if (!mounted) return;
+                          ref.read(assignedRescuersProvider.notifier).update((
+                            state,
+                          ) {
+                            final newState = {...state};
+                            if (newValue == null) {
+                              // Remove assignment
+                              newState.remove(requestId);
+                            } else {
+                              // Add or update assignment
+                              newState[requestId] = newValue;
+                            }
+                            return newState;
+                          });
                         },
                       ),
                     ),
@@ -1326,7 +1360,6 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
               },
             ),
             const SizedBox(height: AppSpacing.lg),
-
             SizedBox(
               width: double.infinity,
               child: _MobileActionButton(
@@ -1345,6 +1378,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
   Widget _buildSubmitAssignmentsButton() {
     return Consumer(
       builder: (context, ref, child) {
+        if (!mounted) return const SizedBox.shrink();
         final assignedRescuers = ref.watch(assignedRescuersProvider);
 
         return Center(
@@ -1392,6 +1426,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
         letterSpacing: 0.5,
       ),
     );
+
     return TableCell(
       verticalAlignment: TableCellVerticalAlignment.middle,
       child: Padding(

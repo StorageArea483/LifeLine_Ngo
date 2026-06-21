@@ -6,6 +6,7 @@ import 'package:life_line_ngo/pages/ngo_dashboard.dart';
 import 'package:life_line_ngo/providers/manage_rescuers_provider.dart';
 import 'package:life_line_ngo/providers/ngo_dasboard_provider.dart';
 import 'package:life_line_ngo/styles/styles.dart';
+import 'package:life_line_ngo/widgets/global/page_loading.dart';
 import 'package:life_line_ngo/widgets/global/page_message.dart';
 import 'package:life_line_ngo/widgets/global/page_navigation.dart';
 import 'package:life_line_ngo/widgets/nav_bar.dart';
@@ -316,21 +317,7 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
                   manageRescuersProvider.select((v) => v.isLoading),
                 );
                 if (!isLoading) return const SizedBox.shrink();
-                return IgnorePointer(
-                  child: Container(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    child: const Center(
-                      child: SizedBox(
-                        width: 60,
-                        height: 60,
-                        child: CircularProgressIndicator(
-                          color: AppColors.primaryMaroon,
-                          strokeWidth: 4,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
+                return pageLoading(context);
               },
             ),
           ],
