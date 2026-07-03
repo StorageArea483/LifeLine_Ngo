@@ -158,7 +158,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
       if (mounted) {
         ref.read(criticalAlertsLoadingProvider.notifier).state = false;
         pageMessage(
-          'Error submitting assignments: $e',
+          'Error submitting assignments, please try again',
           context,
           AppColors.error,
         );

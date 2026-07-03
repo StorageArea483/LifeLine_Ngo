@@ -23,12 +23,11 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
 
   // life-line-victim database credentials
   static const FirebaseOptions _victimFirebaseOptions = FirebaseOptions(
-    apiKey: 'AIzaSyCgdeU_737w9twNR2zt5dzyG5EXK5uKxR0',
-    appId: '1:909144850972:web:a9eb7a5cfcec7e437c55d9',
-    messagingSenderId: '909144850972',
-    projectId: 'life-line-victim-27aaa',
-    authDomain: 'life-line-victim-27aaa.firebaseapp.com',
-    storageBucket: 'life-line-victim-27aaa.firebasestorage.app',
+    apiKey: 'AIzaSyByihQ3YBdrJUrAAxFSX3257fUMa0AJ6uo',
+    appId: '1:503939690280:android:aff06bb9fb777faf792a1d',
+    messagingSenderId: '503939690280',
+    projectId: 'project-life-line',
+    storageBucket: 'project-life-line.firebasestorage.app',
   );
 
   @override
@@ -54,10 +53,10 @@ class _ShowVictimInfoState extends ConsumerState<ShowVictimInfo> {
       FirebaseApp victimApp;
 
       try {
-        victimApp = Firebase.app('life-line-victim');
+        victimApp = Firebase.app('project-life-line');
       } catch (_) {
         victimApp = await Firebase.initializeApp(
-          name: 'life-line-victim',
+          name: 'project-life-line',
           options: _victimFirebaseOptions,
         );
       }

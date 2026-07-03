@@ -283,26 +283,19 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
                       child: const NavBar(),
                     ),
 
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.all(
-                          isMobile ? AppSpacing.lg : AppSpacing.xxl,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildHeader(isMobile),
+                        SizedBox(
+                          height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildHeader(isMobile),
-                            SizedBox(
-                              height: isMobile ? AppSpacing.lg : AppSpacing.xxl,
-                            ),
-                            Consumer(
-                              builder: (context, ref, child) {
-                                return _buildContent(isMobile, isTablet, ref);
-                              },
-                            ),
-                          ],
+                        Consumer(
+                          builder: (context, ref, child) {
+                            return _buildContent(isMobile, isTablet, ref);
+                          },
                         ),
-                      ),
+                      ],
                     ),
                   ],
                 );
@@ -394,6 +387,29 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
               ],
             ),
           ),
+          // Refresh button
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.accentRose.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.accentRose.withValues(alpha: 0.3),
+                width: 1,
+              ),
+            ),
+            child: MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                onTap: refreshRequests,
+                child: const Icon(
+                  Icons.refresh,
+                  color: AppColors.accentRose,
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -423,6 +439,23 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
                 style: AppText.subtitle.copyWith(
                   color: AppColors.textSecondary,
                   fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              ElevatedButton.icon(
+                onPressed: refreshRequests,
+                icon: const Icon(Icons.refresh, size: 18),
+                label: const Text('Refresh'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryMaroon,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xl,
+                    vertical: AppSpacing.md,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
             ],

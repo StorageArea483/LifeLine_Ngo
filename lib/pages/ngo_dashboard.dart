@@ -31,12 +31,11 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
 
   // life-line-victim database credentials
   static const FirebaseOptions _victimFirebaseOptions = FirebaseOptions(
-    apiKey: 'AIzaSyCgdeU_737w9twNR2zt5dzyG5EXK5uKxR0',
-    appId: '1:909144850972:web:a9eb7a5cfcec7e437c55d9',
-    messagingSenderId: '909144850972',
-    projectId: 'life-line-victim-27aaa',
-    authDomain: 'life-line-victim-27aaa.firebaseapp.com',
-    storageBucket: 'life-line-victim-27aaa.firebasestorage.app',
+    apiKey: 'AIzaSyByihQ3YBdrJUrAAxFSX3257fUMa0AJ6uo',
+    appId: '1:503939690280:android:aff06bb9fb777faf792a1d',
+    messagingSenderId: '503939690280',
+    projectId: 'project-life-line',
+    storageBucket: 'project-life-line.firebasestorage.app',
   );
 
   @override
@@ -50,19 +49,15 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
 
   Future<void> _initializeDashboard() async {
     if (!mounted) return;
-
-    // Set loading to true at the very beginning of all initialization tasks
     ref.read(ngoDasboardProvider.notifier).setLoading(true);
 
     try {
-      // Run all async initialization tasks concurrently
       await Future.wait([
         _initializeAudio(),
         _initVictimFirebase(),
         _fetchRescuerCount(),
       ]);
 
-      // Set up the listener synchronously after other setups
       if (mounted) {
         _listenToRequestCount();
       }
@@ -87,14 +82,7 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
       await _audioPlayer.setAsset('assets/audio/warning-sound.mp3');
       await _audioPlayer.setLoopMode(LoopMode.all);
     } catch (e) {
-      if (mounted) {
-        pageMessage(
-          'An unexpected error occurred, please retry',
-          context,
-          AppColors.error,
-        );
-        pageNavigation(const NgoLogin(), context);
-      }
+      rethrow;
     }
   }
 
@@ -110,10 +98,10 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
       FirebaseApp victimApp;
 
       try {
-        victimApp = Firebase.app('life-line-victim');
+        victimApp = Firebase.app('project-life-line');
       } catch (_) {
         victimApp = await Firebase.initializeApp(
-          name: 'life-line-victim',
+          name: 'project-life-line',
           options: _victimFirebaseOptions,
         );
       }
@@ -122,14 +110,7 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
 
       await _fetchVictimCount();
     } catch (e) {
-      if (mounted) {
-        pageMessage(
-          'An unexpected error occurred, Please re-login',
-          context,
-          AppColors.error,
-        );
-        pageNavigation(const NgoLogin(), context);
-      }
+      rethrow;
     }
   }
 
@@ -174,7 +155,11 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
           });
     } catch (e) {
       if (mounted) {
-        pageMessage('Audio, failed to start', context, AppColors.error);
+        pageMessage(
+          'An unexpected error occurred, please retry',
+          context,
+          AppColors.error,
+        );
         pageNavigation(const NgoLogin(), context);
       }
     }
@@ -200,13 +185,7 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
         ref.read(ngoDasboardProvider.notifier).setRescuerCount(rescuerCount);
       }
     } catch (e) {
-      if (mounted) {
-        pageMessage(
-          'Failed to fetch rescuer requests',
-          context,
-          AppColors.error,
-        );
-      }
+      rethrow;
     }
   }
 

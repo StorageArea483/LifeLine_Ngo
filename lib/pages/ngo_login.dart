@@ -172,11 +172,7 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
     } catch (e) {
       if (mounted) {
         ref.read(ngoLoginProvider.notifier).setLoading(false);
-        pageMessage(
-          'An unexpected error occurred, please retry',
-          context,
-          AppColors.error,
-        );
+        rethrow;
       }
     }
   }
