@@ -44,6 +44,8 @@ final criticalAlertsLoadingProvider = StateProvider.autoDispose<bool>(
 );
 
 // provider used to hold the assigned rescuers data
-final assignedRescuersProvider = StateProvider<Map<String, String>>((ref) {
-  return {};
-});
+final assignedRescuersProvider = StateProvider.autoDispose<Map<String, String>>(
+  (ref) {
+    return {};
+  },
+);

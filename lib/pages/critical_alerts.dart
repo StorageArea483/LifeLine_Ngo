@@ -84,17 +84,21 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
       if (_rescuerFirestore == null) {
         throw Exception('Rescuer database not initialized');
       }
+
       if (ngoDocId == null) {
         throw Exception('NGO ID not found');
       }
 
       if (!mounted) return;
+
       final assignedRescuers = ref.read(assignedRescuersProvider);
+
       if (assignedRescuers.isEmpty) {
         throw Exception('No assignments found');
       }
 
       if (!mounted) return;
+
       final victimRequests = ref.read(victimRequestsProvider);
 
       // Group assignments by rescuer with severity
@@ -109,12 +113,14 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
           (v) => v['id'] == victimId,
           orElse: () => {'severity': 'N/A'},
         );
+
         final severity = victim['severity'] ?? 'N/A';
 
         // Create or update the rescuer's assignment map
         if (!rescuerAssignments.containsKey(rescuerId)) {
           rescuerAssignments[rescuerId] = {};
         }
+
         // Add victim ID as key and severity as value to the map
         rescuerAssignments[rescuerId]![victimId] = severity;
       }
@@ -125,7 +131,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
         final assignmentsMap = entry.value;
         final assignmentCount = assignmentsMap.length;
 
-        Future.wait([
+        await Future.wait([
           // Update NGO database
           _ngoFirestore
               .collection('ngo-info-database')
@@ -136,7 +142,6 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
                 'assigned': assignmentsMap,
                 'requests': assignmentCount,
               }, SetOptions(merge: true)),
-
           // Update Rescuer database
           _rescuerFirestore!.collection('users').doc(rescuerId).set({
             'assigned': assignmentsMap,
@@ -145,9 +150,26 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
         ]);
       }
 
+      // Collect all victim IDs that were just assigned (across all rescuers)
+      final assignedVictimIds = assignedRescuers.keys.toSet();
+      await Future.wait(
+        assignedVictimIds.map(
+          (victimId) =>
+              _ngoFirestore.collection('requests').doc(victimId).delete(),
+        ),
+      );
+
       if (mounted) {
+        // Remove the now-assigned victims from the Victim Requests section
+        final updatedRequests = victimRequests
+            .where((v) => !assignedVictimIds.contains(v['id']))
+            .toList();
+
+        ref.read(victimRequestsProvider.notifier).state = updatedRequests;
+
         ref.read(criticalAlertsLoadingProvider.notifier).state = false;
         ref.read(assignedRescuersProvider.notifier).state = {};
+
         pageMessage(
           'Assignments submitted successfully.',
           context,
