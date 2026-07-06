@@ -154,8 +154,9 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
       final assignedVictimIds = assignedRescuers.keys.toSet();
       await Future.wait(
         assignedVictimIds.map(
-          (victimId) =>
-              _ngoFirestore.collection('requests').doc(victimId).delete(),
+          (victimId) => _ngoFirestore.collection('requests').doc(victimId).set({
+            'assigned': true,
+          }, SetOptions(merge: true)),
         ),
       );
 
@@ -243,6 +244,9 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
 
       for (var doc in snapshot.docs) {
         final data = doc.data();
+        // Skip requests that have already been assigned to a rescuer
+        if (data['assigned'] == true) continue;
+
         // Only include requests with valid latitude and longitude
         if (data['latitude'] != null && data['longitude'] != null) {
           requests.add({
@@ -447,7 +451,6 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
       ),
       child: Row(
         children: [
-          // Back button
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(

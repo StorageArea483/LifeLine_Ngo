@@ -387,29 +387,6 @@ class _ManageRescuersState extends ConsumerState<ManageRescuers> {
               ],
             ),
           ),
-          // Refresh button
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.accentRose.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.accentRose.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-            child: MouseRegion(
-              cursor: SystemMouseCursors.click,
-              child: GestureDetector(
-                onTap: refreshRequests,
-                child: const Icon(
-                  Icons.refresh,
-                  color: AppColors.accentRose,
-                  size: 20,
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );

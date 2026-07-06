@@ -143,7 +143,12 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
           .snapshots()
           .listen((snapshot) {
             if (!mounted) return;
-            final requestCount = snapshot.docs.length;
+
+            // Only count requests that haven't been assigned yet
+            final requestCount = snapshot.docs
+                .where((doc) => doc.data()['assigned'] != true)
+                .length;
+
             if (mounted) {
               ref
                   .read(ngoDasboardProvider.notifier)
@@ -295,8 +300,6 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
           pageNavigation(const ShowRescuerInfo(), context);
         },
       },
-      {'title': 'Relief Operations', 'icon': Icons.location_on, 'onTap': () {}},
-      {'title': 'Submit Reports', 'icon': Icons.description, 'onTap': () {}},
     ];
 
     if (isCompact) {

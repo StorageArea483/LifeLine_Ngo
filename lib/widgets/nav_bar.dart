@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:life_line_ngo/pages/ngo_auth.dart';
 import 'package:life_line_ngo/pages/ngo_dashboard.dart';
 import 'package:life_line_ngo/pages/ngo_login.dart';
-import 'package:life_line_ngo/pages/show_victim_info.dart';
 import 'package:life_line_ngo/styles/styles.dart';
 import 'package:life_line_ngo/widgets/global/page_navigation.dart';
 
@@ -84,55 +83,6 @@ class _NavBarState extends State<NavBar> {
                           const SizedBox(width: AppSpacing.xxl),
                           MouseRegion(
                             cursor: SystemMouseCursors.click,
-                            child: GestureDetector(
-                              onTap: () {
-                                if (mounted) {
-                                  pageNavigation(
-                                    const ShowVictimInfo(),
-                                    context,
-                                  );
-                                }
-                              },
-                              child: const Text(
-                                'View Victims',
-                                style: AppText.base,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.xxl),
-                          MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: GestureDetector(
-                              child: const Text('Reports', style: AppText.base),
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.xxl),
-                          MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: GestureDetector(
-                              onTap: () {},
-                              child: const Text(
-                                'SOS Logs',
-                                style: AppText.base,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.xxl),
-                          MouseRegion(
-                            cursor: SystemMouseCursors.click,
-                            child: GestureDetector(
-                              onTap: () {
-                                if (mounted) {}
-                              },
-                              child: const Text(
-                                'Settings',
-                                style: AppText.base,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: AppSpacing.xxl),
-                          MouseRegion(
-                            cursor: SystemMouseCursors.click,
                             child: ElevatedButton(
                               onPressed: () {
                                 pageNavigation(const NgoAuth(), context);
@@ -202,44 +152,6 @@ Widget buildDrawer(BuildContext context) {
             title: const Text('Dashboard', style: AppText.fieldLabel),
             onTap: () {
               pageNavigation(const NgoDashboard(), context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(
-              Icons.people_outline,
-              color: AppColors.primaryMaroon,
-            ),
-            title: const Text('View Victims', style: AppText.fieldLabel),
-            onTap: () {
-              pageNavigation(const ShowVictimInfo(), context);
-            },
-          ),
-          ListTile(
-            leading: const Icon(
-              Icons.assessment,
-              color: AppColors.primaryMaroon,
-            ),
-            title: const Text('Reports', style: AppText.fieldLabel),
-            onTap: () {
-              if (context.mounted) {
-                Navigator.pop(context);
-              }
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.history, color: AppColors.primaryMaroon),
-            title: const Text('SOS Logs', style: AppText.fieldLabel),
-            onTap: () {
-              if (context.mounted) {
-                Navigator.pop(context);
-              }
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.settings, color: AppColors.primaryMaroon),
-            title: const Text('Settings', style: AppText.fieldLabel),
-            onTap: () {
-              Navigator.pop(context);
             },
           ),
           const Divider(),
