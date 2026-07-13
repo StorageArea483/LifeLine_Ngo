@@ -26,6 +26,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
   final FirebaseFirestore _ngoFirestore = FirebaseFirestore.instance;
   StreamSubscription? _rescuerSubscription;
   FirebaseFirestore? _rescuerFirestore;
+  FirebaseFirestore? victimFirestore;
 
   // life-line-rescuer database credentials
   static const FirebaseOptions _rescuerFirebaseOptions = FirebaseOptions(
@@ -34,6 +35,14 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
     messagingSenderId: '494066243537',
     projectId: 'life-line-rescuer-b1f1c',
     storageBucket: 'life-line-rescuer-b1f1c.firebasestorage.app',
+  );
+
+  static const FirebaseOptions _victimFirebaseOptions = FirebaseOptions(
+    apiKey: 'AIzaSyByihQ3YBdrJUrAAxFSX3257fUMa0AJ6uo',
+    appId: '1:503939690280:android:aff06bb9fb777faf792a1d',
+    messagingSenderId: '503939690280',
+    projectId: 'project-life-line',
+    storageBucket: 'project-life-line.firebasestorage.app',
   );
 
   @override
@@ -54,6 +63,7 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
   Future<void> _initializeRescuerFirebase() async {
     try {
       FirebaseApp rescuerApp;
+      FirebaseApp victimApp;
       try {
         rescuerApp = Firebase.app('life-line-rescuer');
       } catch (_) {
@@ -63,6 +73,16 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
         );
       }
       _rescuerFirestore = FirebaseFirestore.instanceFor(app: rescuerApp);
+
+      try {
+        victimApp = Firebase.app('project-life-line');
+      } catch (_) {
+        victimApp = await Firebase.initializeApp(
+          name: 'project-life-line',
+          options: _victimFirebaseOptions,
+        );
+      }
+      victimFirestore = FirebaseFirestore.instanceFor(app: victimApp);
     } catch (e) {
       if (mounted) {
         pageMessage(
@@ -85,12 +105,15 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
         throw Exception('Rescuer database not initialized');
       }
 
+      if (victimFirestore == null) {
+        throw Exception('Victim database not initialized');
+      }
+
       if (ngoDocId == null) {
         throw Exception('NGO ID not found');
       }
 
       if (!mounted) return;
-
       final assignedRescuers = ref.read(assignedRescuersProvider);
 
       if (assignedRescuers.isEmpty) {
@@ -98,7 +121,6 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
       }
 
       if (!mounted) return;
-
       final victimRequests = ref.read(victimRequestsProvider);
 
       // Group assignments by rescuer with severity
@@ -132,6 +154,9 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
         final assignmentCount = assignmentsMap.length;
 
         await Future.wait([
+          _ngoFirestore.collection('ngo-info-database').doc(ngoDocId).set({
+            'assigned': assignmentsMap,
+          }, SetOptions(merge: true)),
           // Update NGO database
           _ngoFirestore
               .collection('ngo-info-database')
@@ -157,6 +182,20 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
           (victimId) => _ngoFirestore.collection('requests').doc(victimId).set({
             'assigned': true,
           }, SetOptions(merge: true)),
+        ),
+      );
+
+      // Store the assigned rescuer's UID on the victim's own document
+      // in the project-life-line database, keyed by 'assignedWith'
+      await Future.wait(
+        assignedRescuers.entries.map(
+          (entry) => victimFirestore!
+              .collection('users')
+              .doc(entry.key) // victimId
+              .set({
+                'assignedWith': entry.value, // rescuerId
+                'requestAccepted': 'pending',
+              }, SetOptions(merge: true)),
         ),
       );
 
@@ -192,7 +231,6 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
   Future<void> _fetchData() async {
     try {
       if (!mounted) return;
-      // Set loading to true
       ref.read(criticalAlertsLoadingProvider.notifier).state = true;
 
       if (!mounted) return;

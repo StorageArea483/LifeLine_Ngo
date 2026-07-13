@@ -120,6 +120,7 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
       if (autoApprovedValue && mounted) {
         // Auto approval is ON — login directly
         final idExtracted = await _storeNgoDocId(email, password);
+        if (!mounted) return;
         ref.read(ngoLoginProvider.notifier).setLoading(false);
 
         if (idExtracted) {
@@ -135,9 +136,7 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
           .limit(1)
           .get();
 
-      if (!mounted) return;
-
-      if (snapshot.docs.isEmpty) {
+      if (snapshot.docs.isEmpty && mounted) {
         ref.read(ngoLoginProvider.notifier).setLoading(false);
         pageMessage('Invalid email or password', context, AppColors.error);
         return;
@@ -149,6 +148,7 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
       if (isApproved && mounted) {
         // NGO is approved — proceed with login
         final idExtracted = await _storeNgoDocId(email, password);
+        if (!mounted) return;
         ref.read(ngoLoginProvider.notifier).setLoading(false);
 
         if (idExtracted) {
@@ -162,6 +162,7 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
         }
       } else {
         // NGO is not approved yet
+        if (!mounted) return;
         ref.read(ngoLoginProvider.notifier).setLoading(false);
         pageMessage(
           'Your request is being processed, please wait for approval',

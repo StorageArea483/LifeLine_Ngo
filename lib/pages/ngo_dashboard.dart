@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:life_line_ngo/pages/critical_alerts.dart';
 import 'package:life_line_ngo/pages/manage_rescuers.dart';
+import 'package:life_line_ngo/pages/ngo_contact_page.dart';
 import 'package:life_line_ngo/pages/ngo_login.dart';
 import 'package:life_line_ngo/pages/show_rescuer_info.dart';
 import 'package:life_line_ngo/providers/ngo_dasboard_provider.dart';
@@ -298,6 +299,13 @@ class _NgoDashboardState extends ConsumerState<NgoDashboard> {
         'icon': Icons.group,
         'onTap': () {
           pageNavigation(const ShowRescuerInfo(), context);
+        },
+      },
+      {
+        'title': 'Manage Contacts',
+        'icon': Icons.contact_page,
+        'onTap': () {
+          pageNavigation(const NgoContactPage(), context);
         },
       },
     ];

@@ -4,48 +4,44 @@ import 'package:latlong2/latlong.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Real-time location provider for individual victims by request ID
-final victimLocationProvider = StreamProvider.family
-    .autoDispose<LatLng?, String>((ref, requestId) {
-      final firestore = FirebaseFirestore.instance;
+final victimLocationProvider = StreamProvider.family<LatLng?, String>((
+  ref,
+  requestId,
+) {
+  final firestore = FirebaseFirestore.instance;
 
-      return firestore.collection('requests').doc(requestId).snapshots().map((
-        doc,
-      ) {
-        if (!doc.exists) return null;
+  return firestore.collection('requests').doc(requestId).snapshots().map((doc) {
+    if (!doc.exists) return null;
 
-        final data = doc.data();
-        if (data == null) return null;
+    final data = doc.data();
+    if (data == null) return null;
 
-        final latitude = data['latitude'] as double?;
-        final longitude = data['longitude'] as double?;
+    final latitude = data['latitude'] as double?;
+    final longitude = data['longitude'] as double?;
 
-        if (latitude == null || longitude == null) return null;
+    if (latitude == null || longitude == null) return null;
 
-        return LatLng(latitude, longitude);
-      });
-    });
+    return LatLng(latitude, longitude);
+  });
+});
 
 // Provider for storing victims list
-final victimRequestsProvider =
-    StateProvider.autoDispose<List<Map<String, dynamic>>>((ref) => []);
+final victimRequestsProvider = StateProvider<List<Map<String, dynamic>>>(
+  (ref) => [],
+);
 
 // Track the currently focused location (null means show all)
-final focusedLocationProvider = StateProvider.autoDispose<String?>(
-  (ref) => null,
-);
+final focusedLocationProvider = StateProvider<String?>((ref) => null);
 
 // Provider for storing approved rescuers list
-final approvedRescuersProvider =
-    StateProvider.autoDispose<List<Map<String, dynamic>>>((ref) => []);
+final approvedRescuersProvider = StateProvider<List<Map<String, dynamic>>>(
+  (ref) => [],
+);
 
 // Loading state provider for critical alerts page
-final criticalAlertsLoadingProvider = StateProvider.autoDispose<bool>(
-  (ref) => true,
-);
+final criticalAlertsLoadingProvider = StateProvider<bool>((ref) => true);
 
 // provider used to hold the assigned rescuers data
-final assignedRescuersProvider = StateProvider.autoDispose<Map<String, String>>(
-  (ref) {
-    return {};
-  },
-);
+final assignedRescuersProvider = StateProvider<Map<String, String>>((ref) {
+  return {};
+});
