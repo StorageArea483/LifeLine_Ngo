@@ -98,23 +98,6 @@ The application includes support for:
 
 These capabilities can support application features involving audio and file interaction.
 
-## 🛠️ Technology Stack
-
-| Technology | Purpose |
-|---|---|
-| Flutter | Application framework |
-| Dart | Programming language |
-| Firebase Core | Firebase initialization and integration |
-| Cloud Firestore | Cloud database |
-| Appwrite | Backend/service integration |
-| Riverpod | State management |
-| Flutter Map | Map interface |
-| OpenStreetMap | Map data |
-| LatLong2 | Geographic coordinates and map support |
-| Flutter Map Location Marker | Location markers |
-| Just Audio | Audio playback |
-| Flutter Dropzone | File/drop-zone support |
-
 ## 📦 Main Dependencies
 
 The current project configuration includes:
