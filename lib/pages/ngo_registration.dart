@@ -504,7 +504,7 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                                       return 'Address is required';
                                     }
                                     final regExp = RegExp(
-                                      r"^[a-zA-Z0-9\s,.\-#/():']{10,200}$",
+                                      r"^[a-zA-Z0-9\s,.\-#/()\[\]{}:;&']{10,200}$",
                                     );
                                     if (!regExp.hasMatch(value.trim())) {
                                       return 'Address format seems invalid';
@@ -551,7 +551,7 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                                       return 'Phone number is required';
                                     }
                                     final regExp = RegExp(
-                                      r'^(?:\+92\s?|0)?(?:3\d{2}-?\d{7}|(21|22|42|51|61|71|81|92)-?\d{7})$',
+                                      r'^(?:(?:\+92|0)?3\d{2}-?\d{7}|(?:\+92|0)?(21|22|42|51|61|71|81|92)-?\d{7})$',
                                     );
                                     if (!regExp.hasMatch(value.trim())) {
                                       return 'Enter a valid Pakistani phone number';
@@ -627,7 +627,7 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                                       return 'Director / CEO name is required';
                                     }
                                     final regExp = RegExp(
-                                      r"^[A-Za-z]+\.?(?:[ -][A-Za-z]+\.?)*$",
+                                      r"^[A-Za-z]+\.?(?:[ \-,()][A-Za-z]+\.?)*$",
                                     );
                                     if (!regExp.hasMatch(value.trim())) {
                                       return 'Enter a valid name (e.g., Dr. John Smith, Ms. Jane Doe)';
@@ -650,7 +650,7 @@ class _NgoRegistrationState extends ConsumerState<NgoRegistration> {
                                       return 'Project Manager name is required';
                                     }
                                     final regExp = RegExp(
-                                      r"^[A-Za-z]+\.?(?:[ -][A-Za-z]+\.?)*$",
+                                      r"^[A-Za-z]+\.?(?:[ \-,()][A-Za-z]+\.?)*$",
                                     );
                                     if (!regExp.hasMatch(value.trim())) {
                                       return 'Enter a valid name (e.g., Dr. John Smith, Ms. Jane Doe)';

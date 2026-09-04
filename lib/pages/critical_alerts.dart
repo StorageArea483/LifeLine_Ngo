@@ -151,7 +151,6 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
       for (final entry in rescuerAssignments.entries) {
         final rescuerId = entry.key;
         final assignmentsMap = entry.value;
-        final assignmentCount = assignmentsMap.length;
 
         await Future.wait([
           _ngoFirestore.collection('ngo-info-database').doc(ngoDocId).set({
@@ -165,12 +164,12 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
               .doc(rescuerId)
               .set({
                 'assigned': assignmentsMap,
-                'requests': assignmentCount,
+                'requests': FieldValue.increment(assignmentsMap.length),
               }, SetOptions(merge: true)),
           // Update Rescuer database
           _rescuerFirestore!.collection('users').doc(rescuerId).set({
             'assigned': assignmentsMap,
-            'requests': assignmentCount,
+            'requests': FieldValue.increment(assignmentsMap.length),
           }, SetOptions(merge: true)),
         ]);
       }
@@ -179,9 +178,10 @@ class _CriticalAlertsState extends ConsumerState<CriticalAlerts> {
       final assignedVictimIds = assignedRescuers.keys.toSet();
       await Future.wait(
         assignedVictimIds.map(
-          (victimId) => _ngoFirestore.collection('requests').doc(victimId).set({
-            'assigned': true,
-          }, SetOptions(merge: true)),
+          (victimId) => _ngoFirestore
+              .collection('requests')
+              .doc(victimId)
+              .update({'assigned': true}),
         ),
       );
 

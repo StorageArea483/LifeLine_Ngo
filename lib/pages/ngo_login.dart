@@ -143,7 +143,19 @@ class _NgoLoginState extends ConsumerState<NgoLogin> {
       }
 
       final data = snapshot.docs.first.data();
+      final isBlocked = data['blocked'] ?? false;
       final isApproved = data['approved'] ?? false;
+
+      if (isBlocked && mounted) {
+        // NGO is blocked — show message
+        ref.read(ngoLoginProvider.notifier).setLoading(false);
+        pageMessage(
+          'Your account has been blocked. Please contact support for guidance.',
+          context,
+          AppColors.error,
+        );
+        return;
+      }
 
       if (isApproved && mounted) {
         // NGO is approved — proceed with login
